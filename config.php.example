@@ -1,0 +1,24 @@
+<?php
+// These paramaters describe the RT mysql db connection
+$GLOBALS['config']['rt_mysql_host'] = '127.0.0.1';
+$GLOBALS['config']['rt_mysql_user'] = 'dbuser';
+$GLOBALS['config']['rt_mysql_pass'] = 'dbpass';
+$GLOBALS['config']['rt_mysql_name'] = 'dbname';
+
+// These parameters describe the zammad /api/v1 connection
+$GLOBALS['config']['curlopt_userpwd'] = 'zammad_user:zammad_pass';
+$GLOBALS['config']['base_url'] = "https://zammad.example.com/api/v1";
+
+// owner id mappings [RT_user_id] = zammad_user_id
+// Pretty sure we only need admin users that can "own" tickets
+$GLOBALS['config']['owner_id']=array();
+$GLOBALS['config']['owner_id'][23]= 77;
+$GLOBALS['config']['owner_id'][47]= 14;
+$GLOBALS['config']['owner_id'][128]= 42;
+$GLOBALS['config']['owner_id'][16269]= 63;
+$GLOBALS['config']['owner_id'][115028]= 28;
+$GLOBALS['config']['owner_id'][118492]= 3;
+$GLOBALS['config']['owner_id'][119302]= 94;
+$GLOBALS['config']['owner_id'][120490]= 63;
+
+?>
