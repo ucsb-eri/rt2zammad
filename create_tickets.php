@@ -224,7 +224,8 @@ class rt2zammad {
 				    		switch(substr($ct,0,9)){
 				    		case "multipart":
 				    			break;
-				    		case "text/plai":
+							case "text/plai":
+							case "text/plain":
 				    		case "text/html":
 				    			if(($html and $ct=="text/html") or !$html){
 				    				$article['ticket_id']=$row['zm_tid'];
