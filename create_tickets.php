@@ -4,25 +4,28 @@ require "./config.php";
 $article=array();
 $zid=0;
 
-$connection=mysqli_connect($GLOBALS['config']['rt_mysql_host'],$GLOBALS['config']['rt_mysql_user'],$GLOBALS['config']['rt_mysql_pass'],$GLOBALS['config']['rt_mysql_db']);
 
-if(! $connection){
-	print("connection error\n");
-	error_log(mysqli_error(),0);
-}
-mysqli_set_charset($connection,'utf8');
-
-print("Creating rt_zammad table: $sql\n");
-$sql = "CREATE TABLE IF NOT EXISTS rt_zammad (rt_tid integer, zm_tid integer);";
-$resultc=mysqli_query($connection,$sql);
-
+////////////////////////////////////////////////////////////////////////////////
 // want to rework this setup a bit...
 // I want to be able to export import by tickets, so lets get a list of tickets to start
 // I think I also want to work this into an object...
+////////////////////////////////////////////////////////////////////////////////
 class rt2zammad {
+	////////////////////////////////////////////////////////////////////////////
 	function __construct(){
+		$this->connection=mysqli_connect($GLOBALS['config']['rt_mysql_host'],$GLOBALS['config']['rt_mysql_user'],$GLOBALS['config']['rt_mysql_pass'],$GLOBALS['config']['rt_mysql_db']);
 
+		if(! $this->connection){
+			print("this->connection error\n");
+			error_log(mysqli_error(),0);
+		}
+		mysqli_set_charset($this->connection,'utf8');
+
+		print("Creating rt_zammad table: $sql\n");
+		$sql = "CREATE TABLE IF NOT EXISTS rt_zammad (rt_tid integer, zm_tid integer);";
+		$resultc=mysqli_query($this->connection,$sql);
 	}
+	////////////////////////////////////////////////////////////////////////////
 	function original(){
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions left join Users on Transactions.Creator=Users.id left join Tickets on Transactions.ObjectId=Tickets.id left join Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' left join GroupMembers on Groups.id=GroupMembers.GroupId left join Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id in(177292) order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions left join Users on Transactions.Creator=Users.id left join Tickets on Transactions.ObjectId=Tickets.id left join Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' left join GroupMembers on Groups.id=GroupMembers.GroupId left join Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id between $tid_beg and $tid_end order by Transactions.id";
@@ -30,7 +33,7 @@ class rt2zammad {
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions left join Users on Transactions.Creator=Users.id left join Tickets on Transactions.ObjectId=Tickets.id left join Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' left join GroupMembers on Groups.id=GroupMembers.GroupId left join Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.ObjectId in(select Tickets.id from Tickets left join zammad.tickets on concat('43',lpad(Tickets.id,8,'0'))=tickets.number where isnull(tickets.id) and Status<>'deleted' and Status<>'rejected' order by id) and Transactions.id<=463246 order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions left join Users on Transactions.Creator=Users.id left join Tickets on Transactions.ObjectId=Tickets.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id between 461841 and 463246 order by Transactions.id";
 		print("Fetching SQL: $sql\n");
-		$result1=mysqli_query($connection,$sql);
+		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			print("Fetched One\n");
 			$created=$transaction['Created'];
@@ -49,7 +52,7 @@ class rt2zammad {
 			if($transaction['Type']<>"Create"){
 				$sql="select zm_tid from rt_zammad where rt_tid={$transaction['TicketId']}";
 				//error_log($sql,0);
-				$result3=mysqli_query($connection,$sql);
+				$result3=mysqli_query($this->connection,$sql);
 				$row=mysqli_fetch_assoc($result3);
 				//error_log($row['zm_tid'],0);
 			}
@@ -92,7 +95,7 @@ class rt2zammad {
 			}
 			$sql="select * from Attachments where TransactionId={$transaction['id']} order by id";
 			//error_log($sql,0);
-			$result2=mysqli_query($connection,$sql);
+			$result2=mysqli_query($this->connection,$sql);
 			$content=array();
 			$content_type=array();
 			$file_name=array();
@@ -373,7 +376,7 @@ class rt2zammad {
 						echo "Old ID: {$transaction['TicketId']}\nNew ID: {$res['id']} ({$res['number']})\n\n";
 						$zm_tid=$res['id'];
 						$sql="insert into rt_zammad values({$transaction['TicketId']},$zm_tid)";
-						$save=mysqli_query($connection,$sql);
+						$save=mysqli_query($this->connection,$sql);
 						if(! $save){
 							error_log("Error saving to rt_zammad",0);
 							error_log("$sql",0);
