@@ -413,7 +413,7 @@ class rt2zammad {
 	}
 }
 
-rt2za = new rt2zammad();
-rt2za->original();
+$rt2za = new rt2zammad();
+$rt2za->original();
 //}
 ?>
