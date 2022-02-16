@@ -26,7 +26,7 @@ class rt2zammad {
 		$resultc=mysqli_query($this->connection,$sql);
 	}
 	function byTicket(){
-		$sql = "SELECT Tickets.id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE rt_tstatus IN ('new','open','resolved') AND rt_tid between 1 AND 1000 ORDER by rt_tid;";
+		$sql = "SELECT Tickets.id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE Tickets.Status IN ('new','open','resolved') AND Tickets.Id between 1 AND 10000 ORDER by Tickets.Id;";
 		$result=mysqli_query($this->connection,$sql);
 		while($ticket=mysqli_fetch_assoc($result)){
 			print("TicketId: " . $ticket['TicketId'] . ", TicketStatus: " . $ticket['TicketStatus'] . ", TicketQueue: " . $ticket['TicketQueue'] . "\n");
