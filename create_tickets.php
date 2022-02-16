@@ -25,6 +25,13 @@ class rt2zammad {
 		$sql = "CREATE TABLE IF NOT EXISTS rt_zammad (rt_tid integer, zm_tid integer);";
 		$resultc=mysqli_query($this->connection,$sql);
 	}
+	function byTicket(){
+		$sql = "SELECT Tickets.id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE rt_tstatus IN ('new','open','resolved') AND rt_tid between 1 1000 ORDER by rt_tid;";
+		$result=mysqli_query($this->connection,$sql);
+		while($ticket=mysqli_fetch_assoc($result)){
+			print("TicketId: " . $ticket['TicketId'] . ", TicketStatus: " . $ticket['TicketStatus'] . ", TicketQueue: " . $ticket['TicketQueue'] . "\n");
+		}
+	}
 	////////////////////////////////////////////////////////////////////////////
 	function original(){
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions left join Users on Transactions.Creator=Users.id left join Tickets on Transactions.ObjectId=Tickets.id left join Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' left join GroupMembers on Groups.id=GroupMembers.GroupId left join Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id in(177292) order by Transactions.id";
@@ -417,6 +424,7 @@ class rt2zammad {
 }
 
 $rt2za = new rt2zammad();
-$rt2za->original();
+//$rt2za->original();
+$rt2za->byTicket();
 //}
 ?>
