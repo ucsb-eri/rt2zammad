@@ -1,6 +1,7 @@
 <?php
 require "./config.php";
 
+$GLOBALS['opt'] = array();
 $article=array();
 $zid=0;
 
@@ -25,6 +26,7 @@ class rt2zammad {
 		$sql = "CREATE TABLE IF NOT EXISTS rt_zammad (rt_tid integer, zm_tid integer);";
 		$resultc=mysqli_query($this->connection,$sql);
 	}
+	////////////////////////////////////////////////////////////////////////////
 	function byTicket(){
 		$sql = "SELECT Tickets.id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE Tickets.Status IN ('new','open','resolved') AND Tickets.Id between 1 AND 10000 ORDER by Tickets.Id;";
 		$result=mysqli_query($this->connection,$sql);
@@ -150,8 +152,8 @@ class rt2zammad {
 				    		$content_type[$i]=$attachment['ContentType'];
 				    	}
 				}
-				$i++;
-	       }
+                $i++;
+            }
 			$data=array();
 			$url="";
 			$jdata="";
@@ -424,8 +426,49 @@ class rt2zammad {
 	}
 }
 
-$rt2za = new rt2zammad();
 //$rt2za->original();
-$rt2za->byTicket();
 //}
+$val = '';
+
+// Command line processing
+$exe = array_shift($argv);
+while( $argfull = array_shift($argv)){
+    if( substr($argfull,0,1) != "-" ) {
+        array_unshift($argv,$argfull);
+        break;
+    }
+
+    if ( strpos($argfull,'=') ) list($arg,$val) = explode("=",$argfull,2);
+	else                        $arg=$argfull;
+
+    switch($arg){
+        case "--verbose" :
+	        $GLOBALS['opt']['verbose'] = True;
+          // if( isset($val)) $hello = $val;
+            break;
+        case "--debug" :
+	        $GLOBALS['opt']['verbose'] = True;
+            $set = array_shift($argv);
+            break;
+        case "--set2" :
+            $set2 = array_shift($argv);
+            break;
+        case "--set3" :
+            $set3 = array_shift($argv);
+            break;
+        default:
+            break;
+    }
+}
+
+$subcommand = array_shift($argv);
+switch($subcommand){
+	case "create-tickets" :
+	    $rt2za = new rt2zammad();
+	    $rt2za->byTicket();
+	    break;
+	default:
+	    print("Default Case - not sure what I want to do yet :-)\n");
+	    break;
+}
 ?>
