@@ -19,7 +19,8 @@ We used a separate import account in Zammad to run the api against.  Some quick 
 * Combined the three separate scripts into a single utility that takes a subcommand argument
   * create-tickets  - create tickets
   * assign-customer - believe this assigns customers/requestors after import
-    * may not be needed if requestors are attached correctly during create-tickets
+    * may not be needed if requestors are attached correctly during create-tickets (not happening so far)
+    * seems to require a zammad db to be in same dbms as RT db (only users table required) to provide a mapping of user/customer ids from '''rt''' to '''zammad'''
   * merge-tickets   - need to scope out what this actually does
 * Added --verbose flag (not really implemented yet though)
 * Added --debug flag that provides extra debugging output
