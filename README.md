@@ -12,10 +12,10 @@ fgaspar's code had very few comments, so had to do some reverse engineering to f
 * Added --verbose flag (not really implemented yet though)
 * Added --debug flag that provides extra debugging output
 * Added --tickets= flag that allows the user to process only certain tickets
- * =ticket#           -- specifies one ticket
- * =ticket#:ticket#   -- specifies a range of tickets
- * ='<ticket#'        -- specifies all tickets less than # (pretty sure quotes are requires to escape redirection in the shell)
- * ='>ticket#'        -- specifies all tickets greater than # (pretty sure quotes are requires to escape redirection in the shell)
+  * =ticket#           -- specifies one ticket
+  * =ticket#:ticket#   -- specifies a range of tickets
+  * ='<ticket#'        -- specifies all tickets less than # (pretty sure quotes are requires to escape redirection in the shell)
+  * ='>ticket#'        -- specifies all tickets greater than # (pretty sure quotes are requires to escape redirection in the shell)
 
 ### Other items:
 * Had to add sql command to create the rt_zammad table that is used by the code...  Assumed the code is just two integers as they are ticket ids.
