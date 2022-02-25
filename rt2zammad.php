@@ -91,6 +91,7 @@ class rt2zammad {
 	}
 	////////////////////////////////////////////////////////////////////////////
 	// merge tickets, looks like all the required data is contained in the url
+	// Looks like create-tickts needs to be run before this is
 	////////////////////////////////////////////////////////////////////////////
 	function merge_tickets(){
 		$sql="SELECT Transactions.Created,Tickets.id,Tickets.EffectiveId,rt_zammad.zm_tid as source,zmt.zm_tid as destination from Transactions
@@ -105,7 +106,7 @@ class rt2zammad {
 			$cntr++;
 			$created=$transaction['Created'];
 			$source=$transaction['source'];
-			$destination="43" . str_pad($transaction['EffectiveId'],8,'0',STR_PAD_LEFT);
+			$destination="9" . str_pad($transaction['EffectiveId'],5,'0',STR_PAD_LEFT);
 
 			$url="";
 			$curl_action="GET";
@@ -154,6 +155,38 @@ class rt2zammad {
 		dprint("cntr: $cntr");
 	}
 	////////////////////////////////////////////////////////////////////////////
+	function curl_GET($url){
+		$hmrc=curl_init();
+		$headers=array();
+		$options=array();
+		$options[CURLOPT_URL]= $GLOBALS['config']['base_url'] . "/$url";
+		dprint("URI: {$options[CURLOPT_URL]}");
+		error_log($options[CURLOPT_URL],0);
+		//$options[CURLOPT_POST]=true;
+		$options[CURLOPT_RETURNTRANSFER]=true;
+		$options[CURLOPT_VERBOSE]=true;
+		$options[CURLOPT_HEADER]=false;
+		// $options[CURLOPT_USERPWD]="fgaspar@nixe.co.uk:*******";
+		$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
+		$headers[]="Content-Type: application/json";
+		//error_log($jdata,0);
+		//$options[CURLOPT_POSTFIELDS]=$jdata;
+		$options[CURLOPT_HTTPHEADER]=$headers;
+		$options[CURLOPT_CUSTOMREQUEST]='GET';
+		curl_setopt_array($hmrc,$options);
+
+		$data=curl_exec($hmrc);
+		if(! $data){
+			echo "\nError: " . curl_error($hmrc) . "\n";
+			error_log(curl_error($hmrc),0);
+		}else{
+			$obj=json_decode($data,true);
+			error_log("RESULT: $data",0);
+			curl_close($hmrc);
+		}
+		return($obj);
+	}
+	////////////////////////////////////////////////////////////////////////////
 	// This needs to be run after rt_zammad has been fully populated by create_tickets
 	// Also looks like this is expected to be run on a system with access to both RT and zammad databases
 	////////////////////////////////////////////////////////////////////////////
@@ -190,7 +223,7 @@ class rt2zammad {
 		while($transaction=mysqli_fetch_assoc($result1)){
 			print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$created=$transaction['Created'];
-			$ticket_number="43" . str_pad($transaction['TicketId'],8,'0',STR_PAD_LEFT);
+			$ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$subject=$transaction['Subject'];
 			if($transaction['Queue']==10){
 				$queue="Software Development::Change Requests";
@@ -251,7 +284,7 @@ class rt2zammad {
 			    case 'AddLink':
 			    	$action="merge";
 			    	$link=explode('/',$transaction['NewValue']);
-			    	$new_value="43" . str_pad($link[count($link)-1],8,'0',STR_PAD_LEFT);
+			    	$new_value="9" . str_pad($link[count($link)-1],5,'0',STR_PAD_LEFT);
 			    	break;
 			}
 			$sql="select * from Attachments where TransactionId={$transaction['id']} order by id";
@@ -608,6 +641,8 @@ class rt2zammad {
 	// This will go through the assignment of the RT Requestor to the corresponding
 	// User in the zammad db
 	// This requires having a zammad db with a fully stocked "users" table.
+	// I think if rt users have been imported into zammad prior to ticket creation that
+	// this is not needed.
 	////////////////////////////////////////////////////////////////////////////
 	function assignCustomerToTicket($ticketId){
 		// mysqli_set_charset($connection,'utf-8');
@@ -670,79 +705,227 @@ class rt2zammad {
 		}
 	}
 	////////////////////////////////////////////////////////////////////////////
+	// function rt_users(){
+	// 	$types = array('ALL','NULL','OK','FAIL','FILT','PARTIAL','CTYPE');
+	// 	$cntr = array();
+	// 	$sql="SELECT id,Name,RealName,NickName,Organization,EmailAddress from Users WHERE Name not like '%@qq.com' AND Name not like '%@lists.jobson.com' AND Name not like '%@sendgrid.net';";
+	// 	dprint("RT-Users SQL: $sql");
+	// 	$result=mysqli_query($this->connection,$sql);
+	// 	foreach($types as $type)  $cntr[$type]=0;
+	// 	while($user=mysqli_fetch_assoc($result)){
+	// 		$cntr['ALL']++;
+	// 		$clean='';
+	// 		if (is_null($user['RealName'])){
+	// 		    $type="NULL";
+	// 		}
+	// 		else {
+	// 			// three (maybe more?) situations Here: all bad chars, some bad chars, no bad chars
+	// 			// the clean setup just replaces bad chars with good, so
+	// 			$clean = cleanNonAsciiCharactersInString($user['RealName']);  // this does a substitution
+	// 			if     (strlen($clean) == 0)                         $type = 'FAIL';
+	// 			elseif (!ctype_print($clean))                        $type = 'CTYPE';
+	// 			elseif (strlen($clean) == strlen($user['RealName'])) $type = 'OK';
+	// 			else                                                 $type = 'PARTIAL';
+	// 			// $type = (ctype_print($user['RealName'])) ? "OK" : "FAIL";
+	// 		}
+    //         // do some filtering?
+	// 		if ( $type == 'OK'){
+	// 			if( preg_match('/\?\?/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/FUCK EXPRESS/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/Constipation/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/webmaster@*ucsb.edu/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/Reverse Mortgage/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/Medigap.com/',$user['RealName'])) $type = 'FILT';
+	// 			if( preg_match('/@ucsbcollabsupport.zendesk.com/',$user['Name'])) $type = 'FILT';
+	// 			if( preg_match('/XXX/',$user['RealName'])) $type = 'FILT';
+	//
+	// 		}
+	//
+	//
+    //         $cntr[$type]++;
+	//
+	// 		$str = sprintf("%-40s %-40s %-40s %-4s",$user['Name'],$user['RealName'],$clean,$type);
+	// 		dprint("$str");
+	// 	}
+	// 	foreach($types as $type){
+	// 		dprint("Type $type found: " . $cntr[$type]);
+	// 	}
+	//
+	// }
+	////////////////////////////////////////////////////////////////////////////
 	function rt_users_new(){
 		$cntrFields = array('ALL','UNIQ');
 		$uniqRequestors = array();
-		$sql="SELECT Tickets.id,Tickets.Status,if(isnull(Users.EmailAddress),Users.Name,Users.EmailAddress) as Requestor,zm_tid,users.id as user_id from Tickets
+		$sql="SELECT Tickets.id,Tickets.Status,if(isnull(Users.EmailAddress),Users.Name,Users.EmailAddress) as Requestor,Users.RealName as fullname,Users.Name as username,Users.EmailAddress as email,zm_tid,users.id as user_id from Tickets
 			LEFT JOIN Groups on Tickets.id=Groups.Instance AND Groups.Domain='RT::Ticket-Role' AND Groups.Name='Requestor'
 			LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId
 			LEFT JOIN Users on GroupMembers.MemberId=Users.id
 			LEFT JOIN rt_zammad on Tickets.id=rt_zammad.rt_tid
 			-- LEFT JOIN zammad.users on Users.EmailAddress=users.email
-		  where Status IN('resolved','new','open') GROUP BY Tickets.id ORDER BY Tickets.id";
+		    where Status IN('resolved','new','open') GROUP BY Tickets.id ORDER BY Tickets.id";
 		$result1=mysqli_query($this->connection,$sql);
 		$cntr=array();
 		foreach($cntrFields as $field) $cntr[$field] = 0;
 		while($ticket=mysqli_fetch_assoc($result1)){
 			$cntr['ALL']++;
-			dprint("Ticket ID: {$ticket['id']} ({$ticket['Status']}), Requestor: {$ticket['Requestor']} ({$ticket['user_id']})");
-			$uniqRequestors[$ticket['Requestor']] = $ticket['user_id'];
+			// dprint("Ticket ID: {$ticket['id']} ({$ticket['Status']}), Requestor: {$ticket['Requestor']} ({$ticket['user_id']}), Fullname: {$ticket['fullname']}");
+
+			$n = new userMigrate($ticket);
+			// $uniqRequestors[$ticket['Requestor']] = $ticket['user_id'];
+			$uniqRequestors[$ticket['Requestor']] = $n;
 		}
 
 		dprint("Unique Entries Follow");
-		foreach($uniqRequestors as $email => $uid){
-			print("$uid,$email\n");
+		// foreach($uniqRequestors as $email => $uid){
+		userMigrate::csvHeader();
+		foreach($uniqRequestors as $obj){
+			// if ($obj->status == '')  $obj->csv();
+			$obj->csv();
+			// print("$uid,$email\n");
 		}
 
 		$cntr['UNIQ'] = count($uniqRequestors);
 		foreach($cntrFields as $field) dprint("$field count: {$cntr[$field]}");
+		dprint("Overall (all ticket entries) Status Stats follow:");
+		foreach(userMigrate::$statusStats as $k => $count) dprint("$k: $count");
+		$str = sprintf("%0x",ord('('));
+		dprint("str: $str");
+		// For export/import, looks like we want the following fields
+		// the field keys are the field names we need, the values are default values or null
+
 	}
 	////////////////////////////////////////////////////////////////////////////
-	function rt_users(){
-		$types = array('ALL','NULL','OK','FAIL','FILT','PARTIAL','CTYPE');
-		$cntr = array();
-		$sql="SELECT id,Name,RealName,NickName,Organization,EmailAddress from Users WHERE Name not like '%@qq.com' AND Name not like '%@lists.jobson.com' AND Name not like '%@sendgrid.net';";
-		dprint("RT-Users SQL: $sql");
-		$result=mysqli_query($this->connection,$sql);
-		foreach($types as $type)  $cntr[$type]=0;
-		while($user=mysqli_fetch_assoc($result)){
-			$cntr['ALL']++;
-			$clean='';
-			if (is_null($user['RealName'])){
-			    $type="NULL";
-			}
-			else {
-				// three (maybe more?) situations Here: all bad chars, some bad chars, no bad chars
-				// the clean setup just replaces bad chars with good, so
-				$clean = cleanNonAsciiCharactersInString($user['RealName']);  // this does a substitution
-				if     (strlen($clean) == 0)                         $type = 'FAIL';
-				elseif (!ctype_print($clean))                        $type = 'CTYPE';
-				elseif (strlen($clean) == strlen($user['RealName'])) $type = 'OK';
-				else                                                 $type = 'PARTIAL';
-				// $type = (ctype_print($user['RealName'])) ? "OK" : "FAIL";
-			}
-            // do some filtering?
-			if ( $type == 'OK'){
-				if( preg_match('/\?\?/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/FUCK EXPRESS/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/Constipation/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/webmaster@*ucsb.edu/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/Reverse Mortgage/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/Medigap.com/',$user['RealName'])) $type = 'FILT';
-				if( preg_match('/@ucsbcollabsupport.zendesk.com/',$user['Name'])) $type = 'FILT';
-				if( preg_match('/XXX/',$user['RealName'])) $type = 'FILT';
+	function z_users(){
+		$objs = array();
+		$page=1;
+		$per_page=100;
+		do {
+			$newobjs = $this->curl_GET("users?per_page=$per_page&page=$page");
+			$page++;
+			$objs = array_merge($objs,$newobjs);
+		} while (count($newobjs) > 0);
 
-			}
-
-
-            $cntr[$type]++;
-
-			$str = sprintf("%-40s %-40s %-40s %-4s",$user['Name'],$user['RealName'],$clean,$type);
-			dprint("$str");
+		foreach($objs as $e){
+			print("id: {$e['id']}, login: {$e['login']}, email: {$e['email']}\n");
 		}
-		foreach($types as $type){
-			dprint("Type $type found: " . $cntr[$type]);
+		//$objs = $this->curl_GET('users');
+	}
+
+}
+////////////////////////////////////////////////////////////////////////////////
+// One of these will be instantiated for each row pulled
+////////////////////////////////////////////////////////////////////////////////
+class userMigrate {
+	// should potentially have the fields (and order) as some sort of static class property???
+	// dont like duplicating these, but
+    public static $fields = array(
+		// 'id'            => null,
+		'login'         => null,
+		'firstname'     => null,
+		'lastname'      => null,
+		'email'         => null,
+		'vip'           => 'FALSE',
+		'verified'      => 'FALSE',
+		'active'        => 'TRUE',
+		'out_of_office' => 'FALSE',
+		'roles'         => 'Customer'
+	);
+	public static $statusStats = array();
+	public static function csvHeader(){
+		$vals = array();
+		foreach(self::$fields as $k => $defval) $vals[] = $k;
+		print(implode(",",$vals) . "\n");
+	}
+	// pass in rtdata from mysql query
+	function __construct($ticket){
+		$this->status = '';
+		// set default data right off the bat
+        $this->initData();
+		dprint("Ticket ID: {$ticket['id']} ({$ticket['Status']}), Requestor: {$ticket['Requestor']} ({$ticket['user_id']}), Fullname: {$ticket['fullname']}");
+		$this->data['id'] = $ticket['user_id'];
+		$this->data['email'] = $ticket['email'];
+		$this->data['login'] = $ticket['Requestor'];
+
+        $this->deriveNameData($ticket['fullname']);
+		$this->fullname = $ticket['fullname'];
+	}
+	function deriveNameData($fullname){
+		$match = array();
+		// if we have a single space, then just split into firstname lastname
+		if (is_null($fullname)){
+			// Dont actually do anything here, but there is no further processing to be done...
+			$this->status = "NULL";
 		}
+		else {
+			// chop off any trailing description following a " - "
+			if (preg_match('/^([^-]*) - .*$/',$fullname,$m)){
+				$fullname = $m[1];
+			}
+			if (preg_match('/^(.*) [^ ]*423.*$/',$fullname,$m)){
+				$fullname = $m[1];
+			}
+			if (preg_match('/^([a-zA-Z-]*) ([a-zA-Z\'-]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "SIMPLE";
+			}
+			if (preg_match('/^([a-zA-Z]*) [A-Z]\. ([a-zA-Z\'-]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "INITIAL";
+			}
+			elseif(preg_match('/^([a-zA-Z\'-]*), ([a-zA-Z]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[2];
+				$this->data['lastname'] = $m[1];
+				$this->status = "REVERSE2";
+			}
+			elseif(preg_match('/^([a-zA-Z\'-]*), ([a-zA-Z]*) ([a-zA-Z]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[2];
+				$this->data['lastname'] = $m[1];
+				$this->status = "REVERSE3";
+			}
+			elseif(preg_match('/^([a-zA-Z]*) ([a-zA-Z]*) ([a-zA-Z]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "MIDDLENAME";
+			}
+			if (preg_match('/^([a-zA-Z]*) ([Dd]e [Ll][ae][a-z]* [a-zA-Z\'-]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "DELA";
+			}
+			if (preg_match('/^([a-zA-Z]*) ([Vv]an [Dd]en [a-zA-Z\'-]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "VANDE";
+			}
+			if (preg_match('/^([a-zA-Z]*) ([Dd]e [a-zA-Z\'-]*)$/',$fullname,$m)){
+				$this->data['firstname'] = $m[1];
+				$this->data['lastname'] = $m[2];
+				$this->status = "DE";
+			}
+		}
+		if(isset(self::$statusStats[$this->status])) self::$statusStats[$this->status]++;
+		else self::$statusStats[$this->status]=0;
+
+	}
+	function initData(){
+		$this->data = array();
+		foreach(self::$fields as $k => $default){
+			$this->data[$k] = $default;
+		}
+	}
+	function print(){
+		dprint("{$this->data['id']},{$this->data['email']},$this->fullname,{$this->data['firstname']},{$this->data['lastname']},{$this->status}");
+	}
+	function csv(){
+		$vals = array();
+		foreach(self::$fields as $k => $default){
+			if (isset($this->data[$k]) && ! is_null($this->data[$k])) $vals[] = (preg_match('/,/',$this->data[$k])) ? "\"{$this->data[$k]}\"" : "{$this->data[$k]}";
+			else $vals[] = "";
+		}
+		$str = implode(",",$vals);
+		print("$str\n");
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -958,6 +1141,10 @@ switch($subcommand){
 		$rt2za = new rt2zammad();
 		$rt2za->rt_users_new();
 		break;
+	case "z-users":
+	    $rt2za = new rt2zammad();
+	    $rt2za->z_users();
+	    break;
     case "fake-sub" :
 	    dprint("Fake Subcommand for testing");
 	    break;
