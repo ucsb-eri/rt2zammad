@@ -35,7 +35,8 @@ class rt2zammad {
 	function create_rt_zammad_table(){
 		if ($GLOBALS['opt']['drop']){
 			$sql = "DROP TABLE IF EXISTS rt_zammad;";
-			print("Dropping rt_zammad table: $sql\n");
+			myErrorLog("##### Dropping rt_zammad table: $sql #####");
+			dprint("Dropping rt_zammad table: $sql");
 			$resultc=mysqli_query($this->connection,$sql);
 		}
 
