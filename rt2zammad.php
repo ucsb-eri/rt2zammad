@@ -230,12 +230,12 @@ class rt2zammad {
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id LEFT JOIN Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId LEFT JOIN Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.ObjectId in(select Tickets.id from Tickets LEFT JOIN zammad.tickets on concat('43',lpad(Tickets.id,8,'0'))=tickets.number where isnull(tickets.id) and Status<>'deleted' and Status<>'rejected' order by id) and Transactions.id<=463246 order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id between 461841 and 463246 order by Transactions.id";
 		myErrorLog("############## Fetching transactions related to Ticket: $ticketId ##############");
-		print("############## Fetching transactions related to Ticket: $ticketId ##############");
-		print("## Fetch SQL: $sql\n");
+		// print("############## Fetching transactions related to Ticket: $ticketId ##############\n");
+		myErrorLog("## Fetch SQL: $sql");
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
-			print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
-			myErrorLog("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
+			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
+			myErrorLog("  ############# Transaction $transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId #############");
 			$created=$transaction['Created'];
 			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$ticket_number=$this->getDestination($transaction['TicketId']);
@@ -1120,6 +1120,7 @@ function cleanNonAsciiCharactersInString($orig_text) {
 $GLOBALS['opt']['verbose'] = False;
 $GLOBALS['opt']['debug'] = False;
 $GLOBALS['opt']['test'] = False;
+$GLOBALS['opt']['drop'] = False;
 $GLOBALS['opt']['ticket'] = '';
 $GLOBALS['opt']['prefix'] = '9';
 $GLOBALS['opt']['logtype'] = 0;
@@ -1141,6 +1142,9 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 	        $GLOBALS['opt']['debug'] = True;
             // $set = array_shift($argv);
             break;
+		case "--drop" :
+		    $GLOBALS['opt']['drop'] = True;
+	        break;
 		case "--tickets" :
 			if( isset($val)) $GLOBALS['opt']['tickets'] = $val;
 			break;
