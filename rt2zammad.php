@@ -236,7 +236,7 @@ class rt2zammad {
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
-			myErrorLog("  ############# Transaction $transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId #############");
+			myErrorLog("  ############# Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId #############");
 			$created=$transaction['Created'];
 			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$ticket_number=$this->getDestination($transaction['TicketId']);
