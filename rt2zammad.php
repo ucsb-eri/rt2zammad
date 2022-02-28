@@ -229,8 +229,8 @@ class rt2zammad {
 		// $sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id LEFT JOIN Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId LEFT JOIN Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id LEFT JOIN Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId LEFT JOIN Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.ObjectId in(select Tickets.id from Tickets LEFT JOIN zammad.tickets on concat('43',lpad(Tickets.id,8,'0'))=tickets.number where isnull(tickets.id) and Status<>'deleted' and Status<>'rejected' order by id) and Transactions.id<=463246 order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id between 461841 and 463246 order by Transactions.id";
-		myErrorLog("############## Fetching transactions related to Ticket: $ticketId ##############\n");
-		print("############## Fetching transactions related to Ticket: $ticketId ##############\n");
+		myErrorLog("############## Fetching transactions related to Ticket: $ticketId ##############");
+		print("############## Fetching transactions related to Ticket: $ticketId ##############");
 		print("## Fetch SQL: $sql\n");
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
@@ -958,7 +958,7 @@ class userMigrate {
 }
 ////////////////////////////////////////////////////////////////////////////////
 function myErrorLog($string){
-	error_log($string,$GLOBALS['opt']['logtype'],$GLOBALS['opt']['logfile']);
+	error_log($string . "\n",$GLOBALS['opt']['logtype'],$GLOBALS['opt']['logfile']);
 }
 ////////////////////////////////////////////////////////////////////////////////
 function dprint($str){
