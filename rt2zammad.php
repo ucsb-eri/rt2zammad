@@ -19,7 +19,7 @@ class rt2zammad {
 
 		if(! $this->connection){
 			print("this->connection error\n");
-			error_log(mysqli_error(),0);
+			myErrorLog(mysqli_error());
 		}
 		mysqli_set_charset($this->connection,'utf8');
 
@@ -33,6 +33,12 @@ class rt2zammad {
 	}
 	////////////////////////////////////////////////////////////////////////////
 	function create_rt_zammad_table(){
+		if ($GLOBALS['opt']['drop']){
+			$sql = "DROP TABLE IF EXISTS rt_zammad;";
+			print("Dropping rt_zammad table: $sql\n");
+			$resultc=mysqli_query($this->connection,$sql);
+		}
+
 		$sql = "CREATE TABLE IF NOT EXISTS rt_zammad (rt_tid INTEGER, zm_tid INTEGER, UNIQUE(rt_tid,zm_tid));";
 		print("Creating rt_zammad table: $sql\n");
 		$resultc=mysqli_query($this->connection,$sql);
@@ -89,6 +95,9 @@ class rt2zammad {
 			}
 		}
 	}
+	function getDestination($id){
+		return $GLOBALS['opt']['prefix'] . str_pad($id,5,'0',STR_PAD_LEFT);
+	}
 	////////////////////////////////////////////////////////////////////////////
 	// merge tickets, looks like all the required data is contained in the url
 	// Looks like create-tickts needs to be run before this is
@@ -106,13 +115,15 @@ class rt2zammad {
 			$cntr++;
 			$created=$transaction['Created'];
 			$source=$transaction['source'];
-			$destination="9" . str_pad($transaction['EffectiveId'],5,'0',STR_PAD_LEFT);
+			$eid=$transaction['EffectiveId'];
+			// $destination="9" . str_pad($transaction['EffectiveId'],5,'0',STR_PAD_LEFT);
+			$destination=$this->getDestination($transaction['EffectiveId']);
 
 			$url="";
 			$curl_action="GET";
 			$url="ticket_merge/$source/$destination";
 
-            dprint("created: $created, source: $source, destination: $destination, url: $url");
+            dprint("created: $created, source: $source, destination: $destination, eid: $eid, url: $url");
 			if ( $source == '' || $destination == ''){
 				print("ERROR: source ($source) or destination ($destination) is empty, cannot merge tickets.\n");
 			}
@@ -128,7 +139,7 @@ class rt2zammad {
 			$headers=array();
 			$options=array();
 			$options[CURLOPT_URL]= $GLOBALS['config']['base_url'] . "/$url";
-			error_log($options[CURLOPT_URL],0);
+			myErrorLog($options[CURLOPT_URL]);
 			//$options[CURLOPT_POST]=true;
 			$options[CURLOPT_RETURNTRANSFER]=true;
 			$options[CURLOPT_VERBOSE]=true;
@@ -136,7 +147,7 @@ class rt2zammad {
 			// $options[CURLOPT_USERPWD]="fgaspar@nixe.co.uk:*******";
 			$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 			$headers[]="Content-Type: application/json";
-			//error_log($jdata,0);
+			//myErrorLog($jdata);
 			//$options[CURLOPT_POSTFIELDS]=$jdata;
 			$options[CURLOPT_HTTPHEADER]=$headers;
 			$options[CURLOPT_CUSTOMREQUEST]=$curl_action;
@@ -145,10 +156,10 @@ class rt2zammad {
 			$data=curl_exec($hmrc);
 			if(! $data){
 				echo "\nError: " . curl_error($hmrc) . "\n";
-				error_log(curl_error($hmrc),0);
+				myErrorLog(curl_error($hmrc));
 			}else{
 				$res=json_decode($data,true);
-				error_log("RESULT: $data",0);
+				myErrorLog("RESULT: $data");
 				curl_close($hmrc);
 			}
 		}
@@ -161,7 +172,7 @@ class rt2zammad {
 		$options=array();
 		$options[CURLOPT_URL]= $GLOBALS['config']['base_url'] . "/$url";
 		dprint("URI: {$options[CURLOPT_URL]}");
-		error_log($options[CURLOPT_URL],0);
+		myErrorLog($options[CURLOPT_URL]);
 		//$options[CURLOPT_POST]=true;
 		$options[CURLOPT_RETURNTRANSFER]=true;
 		$options[CURLOPT_VERBOSE]=true;
@@ -169,7 +180,7 @@ class rt2zammad {
 		// $options[CURLOPT_USERPWD]="fgaspar@nixe.co.uk:*******";
 		$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 		$headers[]="Content-Type: application/json";
-		//error_log($jdata,0);
+		//myErrorLog($jdata);
 		//$options[CURLOPT_POSTFIELDS]=$jdata;
 		$options[CURLOPT_HTTPHEADER]=$headers;
 		$options[CURLOPT_CUSTOMREQUEST]='GET';
@@ -178,10 +189,10 @@ class rt2zammad {
 		$data=curl_exec($hmrc);
 		if(! $data){
 			echo "\nError: " . curl_error($hmrc) . "\n";
-			error_log(curl_error($hmrc),0);
+			myErrorLog(curl_error($hmrc));
 		}else{
 			$obj=json_decode($data,true);
-			error_log("RESULT: $data",0);
+			myErrorLog("RESULT: $data");
 			curl_close($hmrc);
 		}
 		return($obj);
@@ -191,6 +202,7 @@ class rt2zammad {
 	// Also looks like this is expected to be run on a system with access to both RT and zammad databases
 	////////////////////////////////////////////////////////////////////////////
 	function createSingleTicket($ticketId = 0){
+		// sql to collect all transactions associated with a given ticket id
 		$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
 		  LEFT JOIN Users ON Transactions.Creator=Users.id
 		  LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.id
@@ -217,13 +229,16 @@ class rt2zammad {
 		// $sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id LEFT JOIN Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId LEFT JOIN Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id LEFT JOIN Groups on Tickets.id=Groups.Instance and Groups.Domain='RT::Ticket-Role' and Groups.Name='Requestor' LEFT JOIN GroupMembers on Groups.id=GroupMembers.GroupId LEFT JOIN Users Requestor on GroupMembers.MemberId=Requestor.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.ObjectId in(select Tickets.id from Tickets LEFT JOIN zammad.tickets on concat('43',lpad(Tickets.id,8,'0'))=tickets.number where isnull(tickets.id) and Status<>'deleted' and Status<>'rejected' order by id) and Transactions.id<=463246 order by Transactions.id";
 		//$sql="select Transactions.*,Users.EmailAddress,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions LEFT JOIN Users on Transactions.Creator=Users.id LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id where ObjectType='RT::Ticket' and Tickets.Status in ('new','open','resolved') and Transactions.Type in ('Create','Status','Correspond','Comment','Set','AddLink') and Transactions.id between 461841 and 463246 order by Transactions.id";
+		myErrorLog("############## Fetching transactions related to Ticket: $ticketId ##############\n");
 		print("############## Fetching transactions related to Ticket: $ticketId ##############\n");
 		print("## Fetch SQL: $sql\n");
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
+			myErrorLog("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$created=$transaction['Created'];
-			$ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
+			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
+			$ticket_number=$this->getDestination($transaction['TicketId']);
 			$subject=$transaction['Subject'];
 			if($transaction['Queue']==10){
 				$queue="Software Development::Change Requests";
@@ -235,14 +250,15 @@ class rt2zammad {
 			$cc="";
 			$creator="guess:" . $transaction['Requestor'];
 			$time=$transaction['TimeTaken'];
+			$new_value = "";  // this was not being initialized, might have caused issues
 
 			// If this is NOT a ticket creation, we want to fetch the matching zammad ticket id from the rt_zammad table
 			if($transaction['Type']<>"Create"){
 				$sql="SELECT zm_tid FROM rt_zammad WHERE rt_tid={$transaction['TicketId']}";
-				//error_log($sql,0);
+				//myErrorLog($sql);
 				$result3=mysqli_query($this->connection,$sql);
 				$row=mysqli_fetch_assoc($result3);
-				//error_log($row['zm_tid'],0);
+				//myErrorLog($row['zm_tid']);
 
 				// This is an ugly hack to avoid some php warnings during test mode
 				if ( $GLOBALS['opt']['test'] ){
@@ -268,6 +284,7 @@ class rt2zammad {
 			    	$action="comment";
 			    	break;
 			    case 'Set':
+				    // some values we see for "Field" are Owner,Subject
 			    	$action=$transaction['Field'];//Queue TimeWorked Subject Owner
 			    	$new_value=$transaction['NewValue'];
 			    	if($new_value=="resolved"){
@@ -284,11 +301,15 @@ class rt2zammad {
 			    case 'AddLink':
 			    	$action="merge";
 			    	$link=explode('/',$transaction['NewValue']);
-			    	$new_value="9" . str_pad($link[count($link)-1],5,'0',STR_PAD_LEFT);
+			    	// $new_value="9" . str_pad($link[count($link)-1],5,'0',STR_PAD_LEFT);
+					$new_value=$this->getDestination($link[count($link)-1]);
+
 			    	break;
 			}
+
+			// Gather any attachments associated with the transactions associated with this ticket
 			$sql="select * from Attachments where TransactionId={$transaction['id']} order by id";
-			//error_log($sql,0);
+			//myErrorLog($sql);
 			$result2=mysqli_query($this->connection,$sql);
 			$content=array();
 			$content_type=array();
@@ -296,27 +317,27 @@ class rt2zammad {
 			$i=0;
 			$html=false;
 			while($attachment=mysqli_fetch_assoc($result2)){
-				//error_log("CT: " . $attachment['ContentType'],0);
-				//error_log(substr($attachment['ContentType'],0,9),0);
+				//myErrorLog("CT: " . $attachment['ContentType']);
+				//myErrorLog(substr($attachment['ContentType'],0,9));
 				switch(substr($attachment['ContentType'],0,9)){
 				    case "multipart":
 				    	if($attachment['Parent']==0){
 				    		$subject=$attachment['Subject'];
-				    		//error_log($attachment['Headers'],0);
+				    		//myErrorLog($attachment['Headers']);
 				    		$lh=explode("\n",$attachment['Headers']);
 				    		foreach($lh as $line){
-				    			//error_log("HEADER: $line",0);
+				    			//myErrorLog("HEADER: $line");
 				    			if(substr($line,0,5)=="From:"){
 				    				$from=substr($line,6);
-				    				//error_log($from,0);
+				    				//myErrorLog($from);
 				    			}
 				    			if(substr($line,0,3)=="To:"){
 				    				$to=substr($line,4);
-				    				//error_log($to,0);
+				    				//myErrorLog($to);
 				    			}
 				    			if(substr($line,0,3)=="CC:"){
 				    				$cc=substr($line,4);
-				    				//error_log($cc,0);
+				    				//myErrorLog($cc);
 				    			}
 				    		}
 				    	}
@@ -325,7 +346,7 @@ class rt2zammad {
 				    case "text/html":
 				    	if($attachment['ContentType']=="text/html"){
 				    		$html=true;
-				    		//error_log('HTML',0);
+				    		//myErrorLog('HTML');
 				    	}
 				    	$content[$i]=$attachment['Content'];
 				    	$content_type[$i]=$attachment['ContentType'];
@@ -339,17 +360,19 @@ class rt2zammad {
 				}
                 $i++;
             }
+
+			// Prepare data for POST to create ticket in zammad
 			$data=array();
 			$url="";
 			$jdata="";
-			$curl_action="POST";
+			$curl_action="POST";  // default action
 			switch($action){
 				case "new_ticket":
 				    	$url="tickets";
 				    	if(is_null($subject) or $subject==""){
 				    		$subject="Support Request";
 				    	}
-				    	error_log("SUBJECT:|$subject|",0);
+				    	myErrorLog("SUBJECT:|$subject|");
 				    	$data['title']=addslashes($subject);
 				    	$data['group']="GRIT";
 				    	$data['customer_id']=$creator;
@@ -358,7 +381,7 @@ class rt2zammad {
 				    	$article=array();
 						$article['created_at']="$created";
 				    	foreach($content_type as $key => $ct){
-				    		//error_log($ct,0);
+				    		//myErrorLog($ct);
 				    		switch(substr($ct,0,9)){
 				    		case "multipart":
 				    			break;
@@ -531,6 +554,8 @@ class rt2zammad {
 				    	$jdata=json_encode($data);
 				    	break;
 				case "merge":
+				        // this attempts to merge tickets during creation
+						// ostensibly, this should fail if merging into a ticket that the script has not seen yet
 				    	$curl_action="GET";
 				    	$url="ticket_merge/{$row['zm_tid']}/$new_value";
 				    	//$data=array();
@@ -540,7 +565,7 @@ class rt2zammad {
 				    	$jdata="";
 				    	break;
 			}
-			//error_log($jdata,0);
+			//myErrorLog($jdata);
 				//execute transaction
 				//exec("/usr/bin/timedatectl set-time '$created'");
 				//$base_url="http://localhost:9200/api/v1";
@@ -556,8 +581,8 @@ class rt2zammad {
 			$options[CURLOPT_HEADER]=false;
 			$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 			$headers[]="Content-Type: application/json";
-			//error_log($options[CURLOPT_URL],0);
-			error_log("JSON DATA: ". $jdata,0);
+			//myErrorLog($options[CURLOPT_URL]);
+			myErrorLog("JSON DATA: ". $jdata);
 			$options[CURLOPT_POSTFIELDS]=$jdata;
 			$options[CURLOPT_HTTPHEADER]=$headers;
 			$options[CURLOPT_CUSTOMREQUEST]=$curl_action;
@@ -566,11 +591,13 @@ class rt2zammad {
 				print("# TEST MODE: would otherwise run curl commands to zammad api:" . $options[CURLOPT_URL] . "\n");
 			}
 			else {
+				// prep and execute the curl command
 				curl_setopt_array($hmrc,$options);
 				$data=curl_exec($hmrc);
+
 				if(! $data){
 					echo "\nError: " . curl_error($hmrc) . "\n";
-					error_log(curl_error($hmrc),0);
+					myErrorLog(curl_error($hmrc));
 				}
 				elseif( isset($data['id']) && is_null($data['id'])){
 					echo "\nError (id is null)\n";
@@ -579,17 +606,18 @@ class rt2zammad {
 					//save IDs
 					//echo "\n\n$data\n\n";
 					$res=json_decode($data,true);
-					error_log("CURL RESULT: $data",0);
+					myErrorLog("CURL RESULT: $data");
 					if(! isset($res['error'])){
 						if($action=="new_ticket"){
+							// the zammad id here is NOT the ticket number but the id of the ticket in the db (assuming)
 							echo "Old ID: {$transaction['TicketId']}\nNew ID: {$res['id']} ({$res['number']})\n\n";
 							$zm_tid=$res['id'];
 							$sql="INSERT INTO rt_zammad VALUES({$transaction['TicketId']},$zm_tid)";
 							dprint("rt_zammad insert sql: $sql");
 							$save=mysqli_query($this->connection,$sql);
 							if(! $save){
-								error_log("Error saving to rt_zammad",0);
-								error_log("$sql",0);
+								myErrorLog("Error saving to rt_zammad");
+								myErrorLog("$sql");
 							}
 						}
 
@@ -686,7 +714,7 @@ class rt2zammad {
 			// $options[CURLOPT_USERPWD]="fgaspar@nixe.co.uk:*******";
 			$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 			$headers[]="Content-Type: application/json";
-			error_log($jdata,0);
+			myErrorLog($jdata);
 			$options[CURLOPT_POSTFIELDS]=$jdata;
 			$options[CURLOPT_HTTPHEADER]=$headers;
 			$options[CURLOPT_CUSTOMREQUEST]=$curl_action;
@@ -695,10 +723,10 @@ class rt2zammad {
 			$data=curl_exec($hmrc);
 			if(! $data){
 				echo "\nError: " . curl_error($hmrc) . "\n";
-				error_log(curl_error($hmrc),0);
+				myErrorLog(curl_error($hmrc));
 			}else{
 				$res=json_decode($data,true);
-				error_log("RESULT: $data",0);
+				myErrorLog("RESULT: $data");
 			}
 			curl_close($hmrc);
 			// }
@@ -929,6 +957,10 @@ class userMigrate {
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////
+function myErrorLog($string){
+	error_log($string,$GLOBALS['opt']['logtype'],$GLOBALS['opt']['logfile']);
+}
+////////////////////////////////////////////////////////////////////////////////
 function dprint($str){
 	if ($GLOBALS['opt']['debug']) print("# DEBUG: $str\n");
 }
@@ -1089,6 +1121,9 @@ $GLOBALS['opt']['verbose'] = False;
 $GLOBALS['opt']['debug'] = False;
 $GLOBALS['opt']['test'] = False;
 $GLOBALS['opt']['ticket'] = '';
+$GLOBALS['opt']['prefix'] = '9';
+$GLOBALS['opt']['logtype'] = 0;
+$GLOBALS['opt']['logfile'] = '';
 
 // Command line processing
 $exe = array_shift($argv);
@@ -1111,6 +1146,13 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 			break;
 		case "--test" :
 			$GLOBALS['opt']['test'] = True;
+			break;
+		case "--prefix" :
+			if( isset($val)) $GLOBALS['opt']['prefix'] = $val;
+		    break;
+		case "--log" :
+		    if( isset($val)) $GLOBALS['opt']['logtype'] = 3;
+		    if( isset($val)) $GLOBALS['opt']['logfile'] = $val;
 			break;
         default:
             break;
