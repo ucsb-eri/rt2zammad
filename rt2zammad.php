@@ -14,6 +14,8 @@ $zid=0;
 class rt2zammad {
 	////////////////////////////////////////////////////////////////////////////
 	function __construct(){
+		$this->dateStampLog();
+		$this->epochBeg = time();
 		$this->ticketIdClauses = array();
 		$this->connection=mysqli_connect($GLOBALS['config']['rt_mysql_host'],$GLOBALS['config']['rt_mysql_user'],$GLOBALS['config']['rt_mysql_pass'],$GLOBALS['config']['rt_mysql_db']);
 
@@ -28,8 +30,33 @@ class rt2zammad {
 		// $resultc=mysqli_query($this->connection,$sql);
 
         // this could be moved into the create-tickets sub
-		$this->create_rt_zammad_table();
 		$this->resolveWhichTickets();
+	}
+	////////////////////////////////////////////////////////////////////////////
+	function __destruct(){
+		$this->epochEnd = time();
+		$ss = $this->epochEnd - $this->epochBeg;
+		// $d = floor($secs / 86400);
+		// $h = floor($secs % 86400) / 3600;
+		// $m = floor($secs % 3600) / 60;
+		// $s = $secs % 60;
+
+		$s = $ss%60;
+        $m = floor(($ss%3600)/60);
+        $h = floor(($ss%86400)/3600);
+        $d = floor(($ss%2592000)/86400);
+
+		$this->dateStampLog();
+        $dur  = sprintf("%02d:%02d:%02d:%02d", $d, $h, $m, $s);
+        myErrorLog("#### run time: $dur");
+	}
+	////////////////////////////////////////////////////////////////////////////
+	function sleep($int){
+		sleep($int);
+	}
+	////////////////////////////////////////////////////////////////////////////
+	function dateStampLog(){
+		myErrorLog("#### " . date("Ymd-His"));
 	}
 	////////////////////////////////////////////////////////////////////////////
 	function create_rt_zammad_table(){
@@ -85,6 +112,7 @@ class rt2zammad {
 	// So comma separated entries, ranges specified with a :, greater than specified with >000
 	////////////////////////////////////////////////////////////////////////////
 	function createTicketLoop(){
+		$this->create_rt_zammad_table();
 		foreach($this->ticketIdClauses as $ticketIdClause){
 			dprint("Running select using the following ticketClause: $ticketIdClause");
 			$sql = "SELECT Tickets.Id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE ( Tickets.Status IN ('new','open','resolved') {$ticketIdClause} ) ORDER by Tickets.Id;";
@@ -104,6 +132,7 @@ class rt2zammad {
 	// Looks like create-tickts needs to be run before this is
 	////////////////////////////////////////////////////////////////////////////
 	function merge_tickets(){
+		$this->create_rt_zammad_table();
 		$sql="SELECT Transactions.Created,Tickets.id,Tickets.EffectiveId,rt_zammad.zm_tid as source,zmt.zm_tid as destination from Transactions
 		  LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id and Transactions.ObjectType='RT::Ticket'
 		  LEFT JOIN rt_zammad on Transactions.ObjectId=rt_zammad.rt_tid
@@ -204,6 +233,7 @@ class rt2zammad {
 	////////////////////////////////////////////////////////////////////////////
 	function createSingleTicket($ticketId = 0){
 		// sql to collect all transactions associated with a given ticket id
+		// NOTE: Transaction.Id will be duplicated if there are multiple requestors on a ticket
 		$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
 		  LEFT JOIN Users ON Transactions.Creator=Users.id
 		  LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.id
@@ -254,8 +284,11 @@ class rt2zammad {
 			$new_value = "";  // this was not being initialized, might have caused issues
 
 			// If this is NOT a ticket creation, we want to fetch the matching zammad ticket id from the rt_zammad table
+			// If multiple imports are done, then different matchups can exist in the db...  Original query grabs the first match only
+			// want to revise that so that the last in the db is used...  Neither is really correct, but the original causes realy ugly
+			// issues.
 			if($transaction['Type']<>"Create"){
-				$sql="SELECT zm_tid FROM rt_zammad WHERE rt_tid={$transaction['TicketId']}";
+				$sql="SELECT zm_tid FROM rt_zammad WHERE rt_tid={$transaction['TicketId']} ORDER BY zm_tid DESC;";
 				//myErrorLog($sql);
 				$result3=mysqli_query($this->connection,$sql);
 				$row=mysqli_fetch_assoc($result3);
@@ -477,40 +510,40 @@ class rt2zammad {
 				    	foreach($content_type as $key => $ct){
 				    		switch(substr($ct,0,9)){
 								case "multipart":
-								break;
+								    break;
 								case "text/plai":
 								case "text/html":
-								if(($html and $ct=="text/html") or !$html){
-									$article['ticket_id']=$row['zm_tid'];
-									$article['subject']=$subject;
-									$article['body']=$content[$key];
-									$article['content_type']=$ct;
-									$article['type']="note";
-									$article['internal']=true;
-									$article['time_unit']=$transaction['TimeTaken'];
-								}
-								break;
+								    if(($html and $ct=="text/html") or !$html){
+									    $article['ticket_id']=$row['zm_tid'];
+									    $article['subject']=$subject;
+									    $article['body']=$content[$key];
+									    $article['content_type']=$ct;
+									    $article['type']="note";
+									    $article['internal']=true;
+									    $article['time_unit']=$transaction['TimeTaken'];
+								    }
+								    break;
 								default:
-								if(! is_null($file_name[$key])){
-									if(! isset($article['attachments'])){
-										$article['attachments']=array();
-									}
-									if(! isset($article['ticket_id'])){
-										$article['ticket_id']=$row['zm_tid'];
-										$article['subject']=$file_name[$key];
-										$article['body']="";
-										$article['content_type']=$ct;
-										$article['type']="note";
-										$article['internal']=true;
-										$article['time_unit']=$transaction['TimeTaken'];
-									}
-									$att=array();
-									$att['filename']=$file_name[$key];
-									$att['mime-type']=$ct;
-									$att['data']=base64_encode($content[$key]);
-									array_push($article['attachments'],$att);
-								}
-								break;
+								    if(! is_null($file_name[$key])){
+								    	if(! isset($article['attachments'])){
+								    		$article['attachments']=array();
+								    	}
+								    	if(! isset($article['ticket_id'])){
+								    		$article['ticket_id']=$row['zm_tid'];
+								    		$article['subject']=$file_name[$key];
+								    		$article['body']="";
+								    		$article['content_type']=$ct;
+								    		$article['type']="note";
+								    		$article['internal']=true;
+								    		$article['time_unit']=$transaction['TimeTaken'];
+								    	}
+								    	$att=array();
+								    	$att['filename']=$file_name[$key];
+								    	$att['mime-type']=$ct;
+								    	$att['data']=base64_encode($content[$key]);
+								    	array_push($article['attachments'],$att);
+								    }
+								    break;
 				    		}
 				    	}
 				    	$jdata=json_encode($article);
@@ -566,6 +599,12 @@ class rt2zammad {
 				    	$jdata="";
 				    	break;
 			}
+
+			// make a copy of the data and null out content
+			$logcopy = (count($data) > 3) ? $data : $article;
+			if (isset($logcopy['body']))            $logcopy['body'] = "BODY-REPLACED";
+			if (isset($logcopy['article']['body'])) $logcopy['article']['body'] = "BODY_REPLACED";
+			$jlog = json_encode($logcopy);
 			//myErrorLog($jdata);
 				//execute transaction
 				//exec("/usr/bin/timedatectl set-time '$created'");
@@ -583,7 +622,7 @@ class rt2zammad {
 			$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 			$headers[]="Content-Type: application/json";
 			//myErrorLog($options[CURLOPT_URL]);
-			myErrorLog("JSON DATA: ". $jdata);
+			myErrorLog("JSON DATA (-body): ". $jlog);
 			$options[CURLOPT_POSTFIELDS]=$jdata;
 			$options[CURLOPT_HTTPHEADER]=$headers;
 			$options[CURLOPT_CUSTOMREQUEST]=$curl_action;
@@ -594,20 +633,20 @@ class rt2zammad {
 			else {
 				// prep and execute the curl command
 				curl_setopt_array($hmrc,$options);
-				$data=curl_exec($hmrc);
+				$curldata=curl_exec($hmrc);
 
-				if(! $data){
+				if(! $curldata){
 					echo "\nError: " . curl_error($hmrc) . "\n";
 					myErrorLog(curl_error($hmrc));
 				}
-				elseif( isset($data['id']) && is_null($data['id'])){
+				elseif( isset($curldata['id']) && is_null($curldata['id'])){
 					echo "\nError (id is null)\n";
 				}
 				else {
 					//save IDs
-					//echo "\n\n$data\n\n";
-					$res=json_decode($data,true);
-					myErrorLog("CURL RESULT: $data");
+					//echo "\n\n$curldata\n\n";
+					$res=json_decode($curldata,true);
+					myErrorLog("CURL RESULT: $curldata");
 					if(! isset($res['error'])){
 						if($action=="new_ticket"){
 							// the zammad id here is NOT the ticket number but the id of the ticket in the db (assuming)
@@ -647,7 +686,7 @@ class rt2zammad {
 						*/
 					}
 					else{
-						echo "\n\n{$res['error']}\n\n$jdata\n\n";
+						myErrorLog("!!!! CURL ERROR \n\n{$res['error']}\n\n$jlog\n\n");
 					}
 				}
 				curl_close($hmrc);
@@ -1115,6 +1154,18 @@ function cleanNonAsciiCharactersInString($orig_text) {
 
     return $text;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+function myHelp(){
+	print("EXAMPLE:\n
+    php ./rt2zammad.php --log=./log-20220301-00.log --prefix=9 --drop --tickets='<20000' create-tickets
+
+	legend:
+	--drop    -- drops and recreates the rt_zammad table - important to do between runs of create-tickets where tickets overlap
+	--prefix  -- specifies the leading number for ticket numbers, rt ticket number is padded to 5 characters with this prefixed
+	--log     -- specifies the logfile name
+    \n");
+}
 ////////////////////////////////////////////////////////////////////////////////
 // Main
 ////////////////////////////////////////////////////////////////////////////////
@@ -1167,33 +1218,30 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 
 $subcommand = array_shift($argv);
 dprint("exe: $exe, subcommand: $subcommand");
+$rt2za = new rt2zammad();
 switch($subcommand){
 	case "create-tickets" :
-	    $rt2za = new rt2zammad();
 	    $rt2za->createTicketLoop();
 	    break;
 	case "merge-tickets" :
-		$rt2za = new rt2zammad();
 		$rt2za->merge_tickets();
 		break;
 	case "assign-customer" :
-		$rt2za = new rt2zammad();
 		$rt2za->assignCustomerLoop();
 		break;
 	case "rt-users-old" :
-		$rt2za = new rt2zammad();
 		$rt2za->rt_users();
 		break;
 	case "rt-users" :
-		$rt2za = new rt2zammad();
 		$rt2za->rt_users_new();
 		break;
 	case "z-users":
-	    $rt2za = new rt2zammad();
 	    $rt2za->z_users();
 	    break;
-    case "fake-sub" :
-	    dprint("Fake Subcommand for testing");
+	case "sleep":
+	    $rt2za->sleep(184);
+    case "help" :
+	    myHelp();
 	    break;
 	default:
 	    dprint("Default Case - not sure what I want to do yet :-)");
