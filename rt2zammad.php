@@ -646,7 +646,13 @@ class rt2zammad {
 					//save IDs
 					//echo "\n\n$curldata\n\n";
 					$res=json_decode($curldata,true);
-					myErrorLog("CURL RESULT: $curldata");
+
+					$rescp = $res;
+					if (isset($rescp['body'])) $rescp['body'] = "BODY-REPLACED";
+					if (isset($rescp['article']['body'])) $rescp['article']['body'] = "BODY-REPLACED";
+					$jcurldata = json_encode($rescp);
+					myErrorLog("CURL RESULT (-body): $jcurldata");
+
 					if(! isset($res['error'])){
 						if($action=="new_ticket"){
 							// the zammad id here is NOT the ticket number but the id of the ticket in the db (assuming)
