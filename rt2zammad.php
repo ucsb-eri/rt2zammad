@@ -418,7 +418,7 @@ class rt2zammad {
 				    	$data['customer_id']=$creator;
 				    	$data['number']=$ticket_number;
 				    	$data['queue']=$queue;
-						$data['created_at']="$created"
+						$data['created_at']="$created";
 						// these seem extraneous and potentially robbed some tickets of a timestamp
 				    	// $article=array();
 						// $article['created_at']="$created";
