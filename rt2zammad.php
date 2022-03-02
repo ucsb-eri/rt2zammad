@@ -263,10 +263,15 @@ class rt2zammad {
 		myErrorLog("############## Fetching transactions related to Ticket: $ticketId ##############");
 		// print("############## Fetching transactions related to Ticket: $ticketId ##############\n");
 		myErrorLog("## Fetch SQL: $sql");
+		$lastTransaction=0;
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
-			myErrorLog("  ############# Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId #############");
+			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) $txStatus = ' DEDUPED';
+			myErrorLog("  ############# Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus #############");
+			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
+			$lastTransaction = $transaction['id'];
+
 			$created=$transaction['Created'];
 			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$ticket_number=$this->getDestination($transaction['TicketId']);
@@ -376,7 +381,8 @@ class rt2zammad {
 				    		}
 				    	}
 				    	break;
-				    case "text/plai":
+					case "text/plain":
+					case "text/plai":
 				    case "text/html":
 				    	if($attachment['ContentType']=="text/html"){
 				    		$html=true;
@@ -395,7 +401,7 @@ class rt2zammad {
                 $i++;
             }
 
-			// Prepare data for POST to create ticket in zammad
+			// Prepare data for curl command to zammad api
 			$data=array();
 			$url="";
 			$jdata="";
@@ -412,8 +418,10 @@ class rt2zammad {
 				    	$data['customer_id']=$creator;
 				    	$data['number']=$ticket_number;
 				    	$data['queue']=$queue;
-				    	$article=array();
-						$article['created_at']="$created";
+						$data['created_at']="$created"
+						// these seem extraneous and potentially robbed some tickets of a timestamp
+				    	// $article=array();
+						// $article['created_at']="$created";
 				    	foreach($content_type as $key => $ct){
 				    		//myErrorLog($ct);
 				    		switch(substr($ct,0,9)){
@@ -511,6 +519,7 @@ class rt2zammad {
 				    		switch(substr($ct,0,9)){
 								case "multipart":
 								    break;
+								case "text/plain":
 								case "text/plai":
 								case "text/html":
 								    if(($html and $ct=="text/html") or !$html){
@@ -622,7 +631,7 @@ class rt2zammad {
 			$options[CURLOPT_USERPWD]=$GLOBALS['config']['curlopt_userpwd'];
 			$headers[]="Content-Type: application/json";
 			//myErrorLog($options[CURLOPT_URL]);
-			myErrorLog("JSON DATA (-body): ". $jlog);
+			myErrorLog("JSON DATA (-body) [$action]: ". $jlog);
 			$options[CURLOPT_POSTFIELDS]=$jdata;
 			$options[CURLOPT_HTTPHEADER]=$headers;
 			$options[CURLOPT_CUSTOMREQUEST]=$curl_action;
@@ -647,6 +656,7 @@ class rt2zammad {
 					//echo "\n\n$curldata\n\n";
 					$res=json_decode($curldata,true);
 
+                    // build an json string WITHOUT the body field for log output
 					$rescp = $res;
 					if (isset($rescp['body'])) $rescp['body'] = "BODY-REPLACED";
 					if (isset($rescp['article']['body'])) $rescp['article']['body'] = "BODY-REPLACED";
@@ -1164,10 +1174,11 @@ function cleanNonAsciiCharactersInString($orig_text) {
 ////////////////////////////////////////////////////////////////////////////////
 function myHelp(){
 	print("EXAMPLE:\n
-    php ./rt2zammad.php --log=./log-20220301-00.log --prefix=9 --drop --tickets='<20000' create-tickets
+    php ./rt2zammad.php --log=./log-20220301-00.log --prefix=9 --drop --dedupe --tickets='<20000' create-tickets
 
 	legend:
 	--drop    -- drops and recreates the rt_zammad table - important to do between runs of create-tickets where tickets overlap
+	--dedup   -- due to a join in the transaction query transactions are processed for each requestor resulting in duplicated articles in zammad
 	--prefix  -- specifies the leading number for ticket numbers, rt ticket number is padded to 5 characters with this prefixed
 	--log     -- specifies the logfile name
     \n");
@@ -1183,7 +1194,7 @@ $GLOBALS['opt']['ticket'] = '';
 $GLOBALS['opt']['prefix'] = '9';
 $GLOBALS['opt']['logtype'] = 0;
 $GLOBALS['opt']['logfile'] = '';
-
+$GLOBALS['opt']['dedup']   = False;
 // Command line processing
 $exe = array_shift($argv);
 // while( $argfull = array_shift($argv)){
@@ -1194,11 +1205,15 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
     switch($arg){
         case "--verbose" :
 	        $GLOBALS['opt']['verbose'] = True;
-            // if( isset($val)) $hello = $val;
             break;
+		case "--dedupe" :
+		    $GLOBALS['opt']['dedup'] = True;
+			break;
+		case "--dedup" :
+		    $GLOBALS['opt']['dedup'] = True;
+			break;
         case "--debug" :
 	        $GLOBALS['opt']['debug'] = True;
-            // $set = array_shift($argv);
             break;
 		case "--drop" :
 		    $GLOBALS['opt']['drop'] = True;
