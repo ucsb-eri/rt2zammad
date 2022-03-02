@@ -267,7 +267,7 @@ class rt2zammad {
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
-			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) $txStatus = ' DEDUPED';
+			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED' : '' ;
 			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus --------##");
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
 			$lastTransaction = $transaction['id'];
@@ -276,6 +276,8 @@ class rt2zammad {
 			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$ticket_number=$this->getDestination($transaction['TicketId']);
 			$subject=$transaction['Subject'];
+
+			// This was hardwired by original coder and is VERY site specific
 			if($transaction['Queue']==10){
 				$queue="Software Development::Change Requests";
 			} else {
@@ -419,6 +421,7 @@ class rt2zammad {
 				    	$data['number']=$ticket_number;
 				    	$data['queue']=$queue;
 						$data['created_at']="$created";
+						$data['updated_at']="$created";  // testing to see if this gets picked up
 						// these seem extraneous and potentially robbed some tickets of a timestamp
 				    	// $article=array();
 						// $article['created_at']="$created";
@@ -427,7 +430,8 @@ class rt2zammad {
 				    		switch(substr($ct,0,9)){
 				    		case "multipart":
 				    			break;
-				    		case "text/plai":
+							case "text/plain":
+							case "text/plai":
 				    		case "text/html":
 				    			if(($html and $ct=="text/html") or !$html){
 				    				$data['article']['subject']=$subject;
@@ -469,12 +473,14 @@ class rt2zammad {
 				    	$data['id']=$row['zm_tid'];
 				    	$data['state']="$new_value";
 						$data['created_at']="$created";
+						$data['updated_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($data);
 				    	break;
 				case "reply":
 				    	$url="ticket_articles";
 				    	$article=array();
 						$article['created_at']="$created";
+						$article['updated_at']="$created";  // testing to see if this gets picked up
 				    	foreach($content_type as $key => $ct){
 				    		switch(substr($ct,0,9)){
 				    		case "multipart":
@@ -515,6 +521,7 @@ class rt2zammad {
 				    	$url="ticket_articles";
 				    	$article=array();
 						$article['created_at']="$created";
+						$article['updated_at']="$created";  // testing to see if this gets picked up
 				    	foreach($content_type as $key => $ct){
 				    		switch(substr($ct,0,9)){
 								case "multipart":
@@ -567,6 +574,7 @@ class rt2zammad {
 				    	$article['internal']=true;
 				    	$article['time_unit']=$transaction['TimeTaken'];
 						$article['created_at']="$created";
+						$article['updated_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($article);
 				    	break;
 				case "Subject":
@@ -576,6 +584,7 @@ class rt2zammad {
 				    	$data['id']=$row['zm_tid'];
 				    	$data['title']=$new_value;
 						$data['created_at']="$created";
+						$data['updated_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($data);
 				    	break;
 				case "Owner":
@@ -585,6 +594,7 @@ class rt2zammad {
 				    	$data['id']=$row['zm_tid'];
 				    	$data['owner_id']=$GLOBALS['config']['owner_id'][$new_value];
 						$data['created_at']="$created";
+						$data['updated_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($data);
 				    	break;
 				case "Queue":
@@ -594,6 +604,7 @@ class rt2zammad {
 				    	$data['id']=$row['zm_tid'];
 				    	$data['queue']=$new_value;
 						$data['created_at']="$created";
+						$data['updated_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($data);
 				    	break;
 				case "merge":
