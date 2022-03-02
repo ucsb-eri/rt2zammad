@@ -268,7 +268,7 @@ class rt2zammad {
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) $txStatus = ' DEDUPED';
-			myErrorLog("  ############# Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus #############");
+			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus --------##");
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
 			$lastTransaction = $transaction['id'];
 
