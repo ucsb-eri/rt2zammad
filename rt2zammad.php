@@ -124,8 +124,20 @@ class rt2zammad {
 			}
 		}
 	}
+	////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////
 	function getDestination($id){
-		return $GLOBALS['opt']['prefix'] . str_pad($id,5,'0',STR_PAD_LEFT);
+		// want to rework this a bit, while we want a string, I think it's going to
+		// be best to treat it as a number and then convert to a string...
+		// so shifting --prefix= from a single digit prefix added and then padded, it
+		// will just become an offset, added to the ticket number.
+
+		// we could also try to sort out the maximum length of existing tickets
+
+		// return $GLOBALS['opt']['prefix'] . str_pad($id,5,'0',STR_PAD_LEFT);
+		$strid = sprintf("%d",intval($GLOBALS['opt']['offset']) + intval($id));
+		if ($GLOBALS['opt']['debug']) print("DEBUG: id: $id, offset: {$GLOBALS['opt']['offset']}, strid: $strid\n");
+		return $strid;
 	}
 	////////////////////////////////////////////////////////////////////////////
 	// merge tickets, looks like all the required data is contained in the url
@@ -268,6 +280,8 @@ class rt2zammad {
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED' : '' ;
+			$blurb  =  $transaction['Type'];
+			$blurb .= ($transaction['Type'] == 'Set') ? ' ' . $transaction['Field'] : '';
 			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus --------##");
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
 			$lastTransaction = $transaction['id'];
@@ -326,7 +340,7 @@ class rt2zammad {
 			    	break;
 			    case 'Set':
 				    // some values we see for "Field" are Owner,Subject
-			    	$action=$transaction['Field'];//Queue TimeWorked Subject Owner
+			    	$action=$transaction['Field']; //Queue TimeWorked Subject Owner
 			    	$new_value=$transaction['NewValue'];
 			    	if($new_value=="resolved"){
 			    		$new_value="closed";
@@ -430,7 +444,6 @@ class rt2zammad {
 				    		switch(substr($ct,0,9)){
 				    		case "multipart":
 				    			break;
-							case "text/plain":
 							case "text/plai":
 				    		case "text/html":
 				    			if(($html and $ct=="text/html") or !$html){
@@ -474,6 +487,8 @@ class rt2zammad {
 				    	$data['state']="$new_value";
 						$data['created_at']="$created";
 						$data['updated_at']="$created";  // testing to see if this gets picked up
+						$data['last_contact_at']="$created";  // testing to see if this gets picked up
+						$data['last_contact_agent_at']="$created";  // testing to see if this gets picked up
 				    	$jdata=json_encode($data);
 				    	break;
 				case "reply":
@@ -486,7 +501,6 @@ class rt2zammad {
 				    		case "multipart":
 				    			break;
 							case "text/plai":
-							case "text/plain":
 				    		case "text/html":
 				    			if(($html and $ct=="text/html") or !$html){
 				    				$article['ticket_id']=$row['zm_tid'];
@@ -526,7 +540,6 @@ class rt2zammad {
 				    		switch(substr($ct,0,9)){
 								case "multipart":
 								    break;
-								case "text/plain":
 								case "text/plai":
 								case "text/html":
 								    if(($html and $ct=="text/html") or !$html){
@@ -905,7 +918,16 @@ class rt2zammad {
 		}
 		//$objs = $this->curl_GET('users');
 	}
-
+	////////////////////////////////////////////////////////////////////////////
+    function getOffsetForTickets(){
+		$sql = "SELECT Id FROM Tickets ORDER BY Id DESC LIMIT 1;";
+		$res = mysqli_query($this->connection,$sql);
+		$ids = mysqli_fetch_assoc($res);
+		$maxId = $ids['Id'];
+		$offset = $GLOBALS['opt']['prefix'] * pow(10,strlen((string) $maxId));
+		print("MaxId: $maxId, Offset: $offset\n");
+		return $offset;
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////
 // One of these will be instantiated for each row pulled
@@ -1185,7 +1207,8 @@ function cleanNonAsciiCharactersInString($orig_text) {
 ////////////////////////////////////////////////////////////////////////////////
 function myHelp(){
 	print("EXAMPLE:\n
-    php ./rt2zammad.php --log=./log-20220301-00.log --prefix=9 --drop --dedupe --tickets='<20000' create-tickets
+	php ./rt2zammad.php --log=./log-20220301-00.log --prefix=9 --drop --dedup --tickets='<20000' create-tickets
+	php ./rt2zammad.php --prefix=2 --log=./log-$(date +'%Y%m%d-%H%M')-02.log --debug --dedup --tickets=18921,18920,11491,11492,11579 --drop create-tickets
 
 	legend:
 	--drop    -- drops and recreates the rt_zammad table - important to do between runs of create-tickets where tickets overlap
@@ -1202,7 +1225,8 @@ $GLOBALS['opt']['debug'] = False;
 $GLOBALS['opt']['test'] = False;
 $GLOBALS['opt']['drop'] = False;
 $GLOBALS['opt']['ticket'] = '';
-$GLOBALS['opt']['prefix'] = '9';
+$GLOBALS['opt']['offset'] = 0;
+$GLOBALS['opt']['prefix'] = 0;
 $GLOBALS['opt']['logtype'] = 0;
 $GLOBALS['opt']['logfile'] = '';
 $GLOBALS['opt']['dedup']   = False;
@@ -1236,7 +1260,7 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 			$GLOBALS['opt']['test'] = True;
 			break;
 		case "--prefix" :
-			if( isset($val)) $GLOBALS['opt']['prefix'] = $val;
+			if( isset($val)) $GLOBALS['opt']['prefix'] = intval($val);
 		    break;
 		case "--log" :
 		    if( isset($val)) $GLOBALS['opt']['logtype'] = 3;
@@ -1251,6 +1275,7 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 $subcommand = array_shift($argv);
 dprint("exe: $exe, subcommand: $subcommand");
 $rt2za = new rt2zammad();
+if ($GLOBALS['opt']['prefix'] != 0) $GLOBALS['opt']['offset'] = $rt2za->getOffsetForTickets($GLOBALS['opt']['prefix']);
 switch($subcommand){
 	case "create-tickets" :
 	    $rt2za->createTicketLoop();
@@ -1284,6 +1309,7 @@ switch($subcommand){
 Per thread at: https://community.zammad.org/t/importing-tickets-and-articles-using-the-api/5775
   looks like we may be able to set the time using "created_at" field for transactions/articles and ticket creation during import
   Specify 'created_at' in json and set import_mode to true in rails console...
+  zammad run rails console       # interactively run the console
   In rails console we need to execute:  Settings.set('import_mode', true)
 
   So something like: zammad run rails r 'Setting.set('import_mode',true)'
