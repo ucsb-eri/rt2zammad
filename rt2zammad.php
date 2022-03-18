@@ -325,14 +325,16 @@ class rt2zammad {
 		$transactionFieldsUsed = array('id','EffectiveId','Type','Created','Subject','TicketId','Queue','Field','Requestor');
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
-			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED' : '' ;
+			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED-TX' : '' ;
+			$crtStatus = ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED-CRT' : '' ;
+
 			$blurb  =  $transaction['Type'];
 			$blurb .= ($transaction['Type'] == 'Set') ? ' ' . $transaction['Field'] : '';
-			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus --------##");
+			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus$crtStatus --------##");
 
 			# short circuit this if are trying to duplicate a transaction id, this causes complaints that the article id already exists
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
-			if ($lastCreate != 0 && $GLOBALS['opt']['dedup'] ) continue;
+			if ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) continue;
 
 			$lastTransaction = $transaction['id'];
 
@@ -473,6 +475,7 @@ class rt2zammad {
 			$url="";
 			$jdata="";
 			$curl_action="POST";  // default action
+			myErrorLog("  #-- Action: $action for ticket $ticket_number --#");
 			switch($action){
 				case "new_ticket":
 				    	$url="tickets";
