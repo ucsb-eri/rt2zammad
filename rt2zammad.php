@@ -513,7 +513,7 @@ class rt2zammad {
 				    			}
 				    			break;
 				    		default:
-							    myErrorLog("CONTENT_TYPE for new ticket transaction: $ticket_number, content_type: $content_type");
+							    myErrorLog("CONTENT_TYPE for new ticket transaction: $ticket_number, content_type: $ct");
 				    			if(! is_null($file_name[$key])){
 				    				if(! isset($data['article']['attachments'])){
 				    					$data['article']['attachments']=array();
@@ -693,6 +693,11 @@ class rt2zammad {
 			$logcopy = (count($data) > 3) ? $data : $article;
 			if (isset($logcopy['body']))            $logcopy['body'] = "BODY-REPLACED";
 			if (isset($logcopy['article']['body'])) $logcopy['article']['body'] = "BODY_REPLACED";
+			if (isset($logcopy['article']['attachments'])){
+				foreach($logcopy['article']['attachments'] as $att){
+					$att['data'] = "ATTACHMENT_REPLACED";
+				}
+			}
 			$jlog = json_encode($logcopy);
 			//myErrorLog($jdata);
 				//execute transaction
