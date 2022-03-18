@@ -320,7 +320,9 @@ class rt2zammad {
 		$lastTransaction=0;
 		$lastCreate=0;
 		$result1=mysqli_query($this->connection,$sql);
-		$transactionFieldsUsed = array('id','EffectiveId','Type','Created','Subject','TicketId','Queue','Field','Requestor')
+
+		// this not actually used, trying to track the fields we need/are using
+		$transactionFieldsUsed = array('id','EffectiveId','Type','Created','Subject','TicketId','Queue','Field','Requestor');
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED' : '' ;
