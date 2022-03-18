@@ -113,6 +113,9 @@ class rt2zammad {
 	////////////////////////////////////////////////////////////////////////////
 	function createTicketLoop(){
 		$this->create_rt_zammad_table();
+
+		// Want to see about options for modifying this query to get a unique list of Effective Ticket Ids for when bringing in tickets.
+		// This would allow us to match the query in the transactions section and in essense merge tickets appropriately as they get imported into zammad
 		foreach($this->ticketIdClauses as $ticketIdClause){
 			dprint("Running select using the following ticketClause: $ticketIdClause");
 			$sql = "SELECT Tickets.Id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE ( Tickets.Status IN ('new','open','resolved') {$ticketIdClause} ) ORDER by Tickets.Id;";
@@ -246,6 +249,9 @@ class rt2zammad {
 	function createSingleTicket($ticketId = 0){
 		// sql to collect all transactions associated with a given ticket id
 		// NOTE: Transaction.Id will be duplicated if there are multiple requestors on a ticket
+		// feel like this should be restructured a bit...  Pretty sure the WHERE clause should be Tickets.EffectiveId = $ticketId
+		// Using EffectiveId would essentially merge the tickets in zammad, but will cause issues with new_ticket since there will be multiple create tickets
+		// transactions for a merged ticket...  If we can easily exclude those other creates, we should be fine
 		$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
 		  LEFT JOIN Users ON Transactions.Creator=Users.id
 		  LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.id
@@ -283,6 +289,8 @@ class rt2zammad {
 			$blurb  =  $transaction['Type'];
 			$blurb .= ($transaction['Type'] == 'Set') ? ' ' . $transaction['Field'] : '';
 			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus --------##");
+
+			# short circuit this if are trying to duplicate a transaction id, this causes complaints that the article id already exists
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
 			$lastTransaction = $transaction['id'];
 
@@ -436,14 +444,16 @@ class rt2zammad {
 				    	$data['queue']=$queue;
 						$data['created_at']="$created";
 						$data['updated_at']="$created";  // testing to see if this gets picked up
+						$data['last_contact_at']="$created";  // testing to see if this gets picked up
+						$data['last_contact_agent_at']="$created";  // testing to see if this gets picked up
 						// these seem extraneous and potentially robbed some tickets of a timestamp
 				    	// $article=array();
 						// $article['created_at']="$created";
 				    	foreach($content_type as $key => $ct){
 				    		//myErrorLog($ct);
 				    		switch(substr($ct,0,9)){
-				    		case "multipart":
-				    			break;
+				    		// case "multipart":
+				    		// 	break;
 							case "text/plai":
 				    		case "text/html":
 				    			if(($html and $ct=="text/html") or !$html){
@@ -454,10 +464,13 @@ class rt2zammad {
 				    				$data['article']['content_type']=$ct;
 				    				$data['article']['type']="email";
 				    				$data['article']['internal']=false;
+									$data['article']['created_at'] = $created;  // created may not be supported in ticket portion, but needed here
+									$data['article']['updated_at'] = $created;  // updated may not be supported in ticket portion, but needed here
 				    				$data['article']['body']=$content[$key];
 				    			}
 				    			break;
 				    		default:
+							    myErrorLog("CONTENT_TYPE for new ticket transaction: $ticket_number, content_type: $content_type");
 				    			if(! is_null($file_name[$key])){
 				    				if(! isset($data['article']['attachments'])){
 				    					$data['article']['attachments']=array();
@@ -1324,5 +1337,19 @@ Per thread at: https://community.zammad.org/t/reset-database-to-start-from-zero/
   zammad run rails r 'ActivityStream.destroy_all'
   zammad run rails r 'RecentView.destroy_all'
   zammad run rails r 'History.destroy_all'
+**/
+
+/**
+Current Issues we are trying to deal with/sort out
+  * The zammad merge api does not seem to work with the implementation expressed in the original code here (unchanged as of this writing)
+      ** (this implementation does not actually make sense to me as it indicates that zammad wants two different
+	  ** specifications for tickets, first is the db refid, the second is a ticketid)
+  * We could potentially merge the entries during import by switching the transaction query to use EffectiveId;
+      ** But that would end up grabbing multiple creates, so we would have to figure out how to skip those extras
+  * We have no way to currently get email addresses assigned to the ticket into zammad via api.
+      ** could potentially build db queries
+  * Timestamps for the ticket creation seem to ignore the updated_at value as well as the last_contact_at and last_contact_agent_at values
+      ** could possibly build sql commands to correct those
+  * email address data in the zammad db is saved in TOAST extended storage
 **/
 ?>
