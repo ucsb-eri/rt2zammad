@@ -330,7 +330,7 @@ class rt2zammad {
 
 			$blurb  =  $transaction['Type'];
 			$blurb .= ($transaction['Type'] == 'Set') ? ' ' . $transaction['Field'] : '';
-			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus$crtStatus --------##");
+			myErrorLog("##-------- Transaction {$transaction['id']} ({$transaction['Type']}) related to Ticket $ticketId$txStatus$crtStatus (Orig: {$transaction['OrigTicketId']}) --------##");
 
 			# short circuit this if are trying to duplicate a transaction id, this causes complaints that the article id already exists
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
