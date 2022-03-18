@@ -326,7 +326,9 @@ class rt2zammad {
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED-TX' : '' ;
-			$crtStatus = ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED-CRT' : '' ;
+
+			// So the issue is, we don't want to nuke secondary creates (during merge), but want them to be converted to a correspondence
+			// $crtStatus = ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED-CRT' : '' ;
 
 			$blurb  =  $transaction['Type'];
 			$blurb .= ($transaction['Type'] == 'Set') ? ' ' . $transaction['Field'] : '';
@@ -334,7 +336,7 @@ class rt2zammad {
 
 			# short circuit this if are trying to duplicate a transaction id, this causes complaints that the article id already exists
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
-			if ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) continue;
+			// if ($transaction['Type'] == 'Create' && $lastCreate != 0 && $GLOBALS['opt']['dedup'] ) continue;
 
 			$lastTransaction = $transaction['id'];
 
@@ -360,7 +362,14 @@ class rt2zammad {
 			// If multiple imports are done, then different matchups can exist in the db...  Original query grabs the first match only
 			// want to revise that so that the last in the db is used...  Neither is really correct, but the original causes realy ugly
 			// issues.
-			if($transaction['Type']<>"Create"){
+			if($transaction['Type'] == "Create" && $GLOBALS['opt']['merge'] && $lastCreate == 0){
+				$lastCreate=$transaction['id'];
+			}
+			elseif($transaction['Type'] == "Create" && $GLOBALS['opt']['merge'] && $lastCreate != 0){
+			    $transaction['Type']='Correspond';
+			}
+
+			if($transaction['Type'] != "Create") {
 				$sql="SELECT zm_tid FROM rt_zammad WHERE rt_tid={$transaction['TicketId']} ORDER BY zm_tid DESC;";
 				//myErrorLog($sql);
 				$result3=mysqli_query($this->connection,$sql);
@@ -372,8 +381,9 @@ class rt2zammad {
 					dprint("Setting up fake row data because of test mode");
 					$row=array('zm_tid' => 0);
 				}
-				$lastCreate=$transaction['id'];
 			}
+
+			// break out cases by Type
 			switch($transaction['Type']){
 			    case 'Create':
 			    	$action="new_ticket";
@@ -476,6 +486,7 @@ class rt2zammad {
 			$jdata="";
 			$curl_action="POST";  // default action
 			myErrorLog("  #-- Action: $action for ticket $ticket_number --#");
+			//note that new_ticket, reply, comment are mostly the same with a few minor differences
 			switch($action){
 				case "new_ticket":
 				    	$url="tickets";
