@@ -108,26 +108,6 @@ class rt2zammad {
 		else $this->ticketIdClauses[] = "";
 	}
 	////////////////////////////////////////////////////////////////////////////
-	// Want to allow individual tickets (or ticketRanges) to be handled from one specification
-	// So comma separated entries, ranges specified with a :, greater than specified with >000
-	////////////////////////////////////////////////////////////////////////////
-	function createTicketLoop(){
-		$this->create_rt_zammad_table();
-
-		// Want to see about options for modifying this query to get a unique list of Effective Ticket Ids for when bringing in tickets.
-		// This would allow us to match the query in the transactions section and in essense merge tickets appropriately as they get imported into zammad
-		foreach($this->ticketIdClauses as $ticketIdClause){
-			dprint("Running select using the following ticketClause: $ticketIdClause");
-			$sql = "SELECT Tickets.Id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus from Tickets WHERE ( Tickets.Status IN ('new','open','resolved') {$ticketIdClause} ) ORDER by Tickets.Id;";
-			dprint("Running: $sql");
-			$result=mysqli_query($this->connection,$sql);
-			while($ticket=mysqli_fetch_assoc($result)){
-				dprint("TicketId: " . $ticket['rt_tid'] . ", TicketStatus: " . $ticket['rt_tstatus'] . ", TicketQueue: " . $ticket['rt_tqueue']);
-				$this->createSingleTicket($ticket['rt_tid']);
-			}
-		}
-	}
-	////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////
 	function getDestination($id){
 		// want to rework this a bit, while we want a string, I think it's going to
@@ -243,6 +223,32 @@ class rt2zammad {
 		return($obj);
 	}
 	////////////////////////////////////////////////////////////////////////////
+	// Want to allow individual tickets (or ticketRanges) to be handled from one specification
+	// So comma separated entries, ranges specified with a :, greater than specified with >000
+	////////////////////////////////////////////////////////////////////////////
+	function createTicketLoop(){
+		$this->create_rt_zammad_table();
+
+		// Want to see about options for modifying this query to get a unique list of Effective Ticket Ids for when bringing in tickets.
+		// This would allow us to match the query in the transactions section and in essense merge tickets appropriately as they get imported into zammad
+		foreach($this->ticketIdClauses as $ticketIdClause){
+			dprint("Running select using the following ticketClause: $ticketIdClause");
+			if ($GLOBALS['opt']['merge']) {
+				// There needs to be a corresponding change in the createSingleTicket query
+				$sql = "SELECT DISTINCT(Tickets.EffectiveId) AS rt_tid FROM Tickets WHERE ( Tickets.Status IN ('new','open','resolved') {$ticketIdClause} ) ORDER BY Tickets.EffectiveId;";
+			}
+			else {
+				$sql = "SELECT Tickets.Id AS rt_tid,Tickets.Queue AS rt_tqueue,Tickets.Status AS rt_tstatus FROM Tickets WHERE ( Tickets.Status IN ('new','open','resolved') {$ticketIdClause} ) ORDER by Tickets.Id;";
+			}
+			dprint("Running: $sql");
+			$result=mysqli_query($this->connection,$sql);
+			while($ticket=mysqli_fetch_assoc($result)){
+				dprint("TicketId: " . $ticket['rt_tid'] . ", TicketStatus: " . $ticket['rt_tstatus'] . ", TicketQueue: " . $ticket['rt_tqueue']);
+				$this->createSingleTicket($ticket['rt_tid']);
+			}
+		}
+	}
+	////////////////////////////////////////////////////////////////////////////
 	// This needs to be run after rt_zammad has been fully populated by create_tickets
 	// Also looks like this is expected to be run on a system with access to both RT and zammad databases
 	////////////////////////////////////////////////////////////////////////////
@@ -252,17 +258,47 @@ class rt2zammad {
 		// feel like this should be restructured a bit...  Pretty sure the WHERE clause should be Tickets.EffectiveId = $ticketId
 		// Using EffectiveId would essentially merge the tickets in zammad, but will cause issues with new_ticket since there will be multiple create tickets
 		// transactions for a merged ticket...  If we can easily exclude those other creates, we should be fine
-		$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
-		  LEFT JOIN Users ON Transactions.Creator=Users.id
-		  LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.id
-		  LEFT JOIN Groups ON Tickets.id=Groups.Instance AND Groups.Domain='RT::Ticket-Role' AND Groups.Name='Requestor'
-		  LEFT JOIN GroupMembers ON Groups.id=GroupMembers.GroupId
-		  LEFT JOIN Users Requestor ON GroupMembers.MemberId=Requestor.id
-		  WHERE Tickets.Id = $ticketId
-		    AND ObjectType='RT::Ticket'
-		    AND Tickets.Status IN ('new','open','resolved')
-			AND Transactions.Type IN ('Create','Status','Correspond','Comment','Set','AddLink')
-		  ORDER BY Transactions.id;";
+		if ($GLOBALS['opt']['merge']) {
+			// restructuring this request based on Ticket.EffectiveID to, in essense, produce merged tickets in zammad
+
+			$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS OrigTicketId,Tickets.EffectiveId as TicketId,Tickets.Subject,Tickets.Queue FROM Tickets
+			  LEFT JOIN Transactions ON Transactions.ObjectId = Tickets.id
+			  LEFT JOIN Users ON Transactions.Creator=Users.id
+			  LEFT JOIN Groups ON Tickets.id=Groups.Instance AND Groups.Domain='RT::Ticket-Role' AND Groups.Name='Requestor'
+			  LEFT JOIN GroupMembers ON Groups.id=GroupMembers.GroupId
+			  LEFT JOIN Users Requestor ON GroupMembers.MemberId=Requestor.id
+              WHERE EffectiveId = $ticketId
+			    AND ObjectType='RT::Ticket'
+			    AND Tickets.Status IN ('new','open','resolved')
+			    AND Transactions.Type IN ('Create','Status','Correspond','Comment','Set','AddLink')
+			  ORDER BY Transactions.id;";
+
+			// $sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS OrigTicketId,Tickets.EffectiveId as TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
+			//   LEFT JOIN Users ON Transactions.Creator=Users.id
+			//   LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.EffectiveId
+			//   LEFT JOIN Groups ON Tickets.id=Groups.Instance AND Groups.Domain='RT::Ticket-Role' AND Groups.Name='Requestor'
+			//   LEFT JOIN GroupMembers ON Groups.id=GroupMembers.GroupId
+			//   LEFT JOIN Users Requestor ON GroupMembers.MemberId=Requestor.id
+			//   WHERE Tickets.EffectiveId = $ticketId
+			//     AND ObjectType='RT::Ticket'
+			//     AND Tickets.Status IN ('new','open','resolved')
+			// 	AND Transactions.Type IN ('Create','Status','Correspond','Comment','Set','AddLink')
+			//   ORDER BY Transactions.id;";
+        }
+		else {
+			$sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress AS Requestor,Tickets.id AS TicketId,Tickets.Subject,Tickets.Queue FROM Transactions
+			  LEFT JOIN Users ON Transactions.Creator=Users.id
+			  LEFT JOIN Tickets ON Transactions.ObjectId=Tickets.id
+			  LEFT JOIN Groups ON Tickets.id=Groups.Instance AND Groups.Domain='RT::Ticket-Role' AND Groups.Name='Requestor'
+			  LEFT JOIN GroupMembers ON Groups.id=GroupMembers.GroupId
+			  LEFT JOIN Users Requestor ON GroupMembers.MemberId=Requestor.id
+			  WHERE Tickets.Id = $ticketId
+			    AND ObjectType='RT::Ticket'
+			    AND Tickets.Status IN ('new','open','resolved')
+				AND Transactions.Type IN ('Create','Status','Correspond','Comment','Set','AddLink')
+			  ORDER BY Transactions.id;";
+
+		}
 		// $sql="SELECT Transactions.*,Users.EmailAddress,Requestor.EmailAddress as Requestor,Tickets.id as TicketId,Tickets.Subject,Tickets.Queue from Transactions
 		//   LEFT JOIN Users on Transactions.Creator=Users.id
 		//   LEFT JOIN Tickets on Transactions.ObjectId=Tickets.id
@@ -282,7 +318,9 @@ class rt2zammad {
 		// print("############## Fetching transactions related to Ticket: $ticketId ##############\n");
 		myErrorLog("## Fetch SQL: $sql");
 		$lastTransaction=0;
+		$lastCreate=0;
 		$result1=mysqli_query($this->connection,$sql);
+		$transactionFieldsUsed = array('id','EffectiveId','Type','Created','Subject','TicketId','Queue','Field','Requestor')
 		while($transaction=mysqli_fetch_assoc($result1)){
 			// print("  ############# Transaction ({$transaction['Type']}) related to Ticket $ticketId #############\n");
 			$txStatus = ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) ? ' DEDUPED' : '' ;
@@ -292,6 +330,8 @@ class rt2zammad {
 
 			# short circuit this if are trying to duplicate a transaction id, this causes complaints that the article id already exists
 			if ($transaction['id'] == $lastTransaction && $GLOBALS['opt']['dedup'] ) continue;
+			if ($lastCreate != 0 && $GLOBALS['opt']['dedup'] ) continue;
+
 			$lastTransaction = $transaction['id'];
 
 			$created=$transaction['Created'];
@@ -328,6 +368,7 @@ class rt2zammad {
 					dprint("Setting up fake row data because of test mode");
 					$row=array('zm_tid' => 0);
 				}
+				$lastCreate=$transaction['id'];
 			}
 			switch($transaction['Type']){
 			    case 'Create':
@@ -713,30 +754,6 @@ class rt2zammad {
 								myErrorLog("$sql");
 							}
 						}
-
-						/* commented code for trying to get date set
-						// This section was commented out in original code
-						if($url=="ticket_articles"){
-							$sql="update ticket_articles set created_at='$created',updated_at='$created' where id={$res['id']}";
-							$zm=mysqli_query($zammad,$sql);
-						}
-						if($url=="tickets"){
-							$sql="update tickets set created_at='$created',updated_at='$created' where id={$res['id']}";
-							$zm=mysqli_query($zammad,$sql);
-							if($new_value=="closed"){
-								$sql="update tickets set close_at='$resolved',updated_at='$created' where id={$res['id']}";
-								$zm=mysqli_query($zammad,$sql);
-							}
-						}
-						if(substr($url,0,8)=="tickets/"){
-							$sql="update tickets set updated_at='$created' where id={$res['id']}";
-							$zm=mysqli_query($zammad,$sql);
-							if($new_value=="closed"){
-								$sql="update tickets set close_at='$resolved',updated_at='$created' where id={$res['id']}";
-								$zm=mysqli_query($zammad,$sql);
-							}
-						}
-						*/
 					}
 					else{
 						myErrorLog("!!!! CURL ERROR \n\n{$res['error']}\n\n$jlog\n\n");
@@ -1243,6 +1260,7 @@ $GLOBALS['opt']['prefix'] = 0;
 $GLOBALS['opt']['logtype'] = 0;
 $GLOBALS['opt']['logfile'] = '';
 $GLOBALS['opt']['dedup']   = False;
+$GLOBALS['opt']['merge']   = False;
 // Command line processing
 $exe = array_shift($argv);
 // while( $argfull = array_shift($argv)){
@@ -1271,6 +1289,9 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 			break;
 		case "--test" :
 			$GLOBALS['opt']['test'] = True;
+			break;
+		case "--merge" :
+			$GLOBALS['opt']['merge'] = True;
 			break;
 		case "--prefix" :
 			if( isset($val)) $GLOBALS['opt']['prefix'] = intval($val);
