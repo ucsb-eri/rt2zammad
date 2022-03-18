@@ -694,7 +694,7 @@ class rt2zammad {
 			if (isset($logcopy['body']))            $logcopy['body'] = "BODY-REPLACED";
 			if (isset($logcopy['article']['body'])) $logcopy['article']['body'] = "BODY_REPLACED";
 			if (isset($logcopy['article']['attachments'])){
-				foreach($logcopy['article']['attachments'] as $att){
+				foreach($logcopy['article']['attachments'] as &$att){
 					$att['data'] = "ATTACHMENT_REPLACED";
 				}
 			}
