@@ -76,9 +76,13 @@ This is definitely not an exhaustive list of changes, but provides a general fee
 * modularize the individual api json building sections
   * The create, reply (and others) sections are very similar and the code is duplicated in each of those areas making the giant switch statement hard to follow.
   * Those sections each use a php array to build the structure for the conversion to json
-    * most use an array named "data", but a few use an array named "article".  Pretty sure those could be easily renamed and things would work, but return on time invested vs risk was not high enough for me to push that through.
+    * most use an array named "data", but a few use an array named "article".  Pretty sure "article" could be easily renamed to "data" and things would work, but return on time invested vs risk was not high enough for me to push that through.  "article" is used as a key in other locations, so it's usage is not unique to that situation.
 * Wanted to do more restructuring of the transaction query loop, but after adding in the merge, the logic and changes were going to require more time to verify that the changes would work correctly.  This relates to the issue mentioned in the --dedupe option mentioned above.
-  * At issue is that RT and Zammad
+  * At issue is that RT and Zammad deal with correspondence differently.
+    * Zammad seems to store them as a list (comma separated???)
+    * RT stores Requestors/CCs as individual entries
+      * So the join/grouping creates "separate" transactions to process
+      * In essence, one needs to create an appropriately separated list of users to associate with a single transaction
 
 ## Examples
 ```
