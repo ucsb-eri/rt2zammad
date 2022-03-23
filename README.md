@@ -4,12 +4,12 @@ RT Export + Zammad Import
 ## Description
 The code was originally developed by zammad community user fgaspar (Federico Gasparrini) and was found via the following thread
 https://community.zammad.org/t/re-migration-from-rt/8660 - This was the url that was provided me by a teammate, but I got a 404 following it.
-https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link that 
+https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link that
 
-The original code had very few comments since, like this reworking, it will be used once and then abandoned.
-Because of that I had to do some reverse engineering to figure some of the stuff out.
+The original code had very few comments, since, like this reworking, it will be used once and then abandoned.
+Because of that I had to do some reverse engineering to figure some of the stuff out.  The original code consisted of three separate scripts that did not utilize classes or functions.
 
-I did find a few structural issues with the code, which I resolved in various fashions.
+I did find a few structural issues with the code, which I resolved in various fashions.  Any comments in the code about issues/structure found/resolved are not meant in any negative fashion.  I would not have tackled this project if I did not have fgaspar's scripts to start from :-)
 
 ### Notes:
 This code will probably never be completely polished as once we are able to complete our export/import "successfully enough", it will get set to the side and likely never used again.
