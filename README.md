@@ -3,8 +3,8 @@ RT Export + Zammad Import
 
 ## Description
 The code was originally developed by zammad community user fgaspar (Federico Gasparrini) and was found via the following thread
-https://community.zammad.org/t/re-migration-from-rt/8660 - This was the url that was provided me by a teammate, but I got a 404 following it.
-https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link that
+https://community.zammad.org/t/re-migration-from-rt/8660 - I swear this worked originally, but doesn't seem to now.  NOTE: I think you have to be signed in on the community site to be able to actually see the ticket.
+https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link with fgaspar content that still existed as of 2022-03-23
 
 The original code had very few comments, since, like this reworking, it will be used once and then abandoned.
 Because of that I had to do some reverse engineering to figure some of the stuff out.  The original code consisted of three separate scripts that did not utilize classes or functions.
