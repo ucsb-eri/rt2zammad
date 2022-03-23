@@ -6,10 +6,10 @@ The code was originally developed by zammad community user fgaspar (Federico Gas
 https://community.zammad.org/t/re-migration-from-rt/8660 - I swear this worked originally, but doesn't seem to now.  NOTE: I think you have to be signed in on the community site to be able to actually see the ticket.
 https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link with fgaspar content that still existed as of 2022-03-23
 
-The original code had very few comments, since, like this reworking, it will be used once and then abandoned.
-Because of that I had to do some reverse engineering to figure some of the stuff out.  The original code consisted of three separate scripts that did not utilize classes or functions.
+The original code had very few comments, since, like this reworking, it was going to be used once and then abandoned.
+Because of that I had to do some reverse engineering to figure some of the stuff out.  The original code consisted of three separate scripts that did not utilize classes or subroutines.
 
-I found a few structural issues with the code, which I resolved in various fashions.  Any comments in the code about issues/structure found/resolved are not meant in any negative fashion.  I would not have tackled this project if I did not have fgaspar's scripts to start from :-)  And while I refactored big sections of the code, much of the core code remains the same.
+I found a few structural issues with the code, which I resolved in various fashions.  Any comments in the code about issues/structure found/resolved are not meant in any negative fashion.  I would not have tackled this project if I did not have fgaspar's scripts to start from :-)  And while I refactored big sections of the code, much of the core code remains intact.
 
 ### Notes:
 This code will probably never be completely polished as once we are able to complete our export/import "successfully enough", it will get set to the side and likely never used again.
@@ -25,10 +25,16 @@ This is definitely not an exhaustive list of changes, but provides a general fee
   * An example of this file is at config.php.example, a copy should be made to config.php and then modified to fit the use case
 * Combined the three separate scripts into a single utility that takes a subcommand argument
   * create-tickets  - create tickets
+    * Really the only portion we used in the end.
   * assign-customer - believe this assigns customers/requestors after import
-    * may not be needed if requestors are attached correctly during create-tickets (not happening so far)
+    * may not be needed if requestors are attached correctly during create-tickets (which seemed to happen for us)
     * seems to require a zammad db to be in same dbms as RT db (only users table required) to provide a mapping of user/customer ids from '''rt''' to '''zammad'''
-  * merge-tickets   - need to scope out what this actually does
+  * merge-tickets
+    * Looked like this was designed to merge tickets after an initial import using create-tickets
+    * Did not work for us, api always complained
+    * The --merge option (see below) helps to even avoid the need for it
+    * Was needed because original/default operation uses RT Ticket.id which uses pre-merge ticket ids.
+      * --merge operation utilizes Ticket.EffectiveId so that all transactions for the EffectiveId get processed into the already merged tickets id.
 * Added --verbose flag (not really implemented yet though)
 * Added --debug flag that provides extra debugging output
 * Added --test flag that does a sorta dry run so that the destination API does not get any requests
