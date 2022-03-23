@@ -2,10 +2,14 @@
 RT Export + Zammad Import
 
 ## Description
-The code was originally developed by user fgaspar (Federico Gasparrini) and was found via the following thread
+The code was originally developed by zammad community user fgaspar (Federico Gasparrini) and was found via the following thread
 https://community.zammad.org/t/re-migration-from-rt/8660 - This was the url that was provided me by a teammate, but I got a 404 following it.
+https://community.zammad.org/t/re-merge-tickets-with-api/8939 - this is another link that 
 
-fgaspar's code had very few comments, so had to do some reverse engineering to figure some of the stuff out...
+The original code had very few comments since, like this reworking, it will be used once and then abandoned.
+Because of that I had to do some reverse engineering to figure some of the stuff out.
+
+I did find a few structural issues with the code, which I resolved in various fashions.
 
 ### Notes:
 This code will probably never be completely polished as once we are able to complete our export/import "successfully enough", it will get set to the side and likely never used again.
@@ -16,6 +20,8 @@ We used a separate import account in Zammad to run the api against.  Some quick 
 * Account used to import into api should have agent (to allow Requestor/Customer to be set) and admin roles (pretty sure, still testing)
 
 ## Modifications from Original Code
+* Moved configuration information into a separate PHP file.  
+  * An example of this file is at config.php.example, a copy should be made to config.php and then modified to fit the use case
 * Combined the three separate scripts into a single utility that takes a subcommand argument
   * create-tickets  - create tickets
   * assign-customer - believe this assigns customers/requestors after import
@@ -30,6 +36,9 @@ We used a separate import account in Zammad to run the api against.  Some quick 
   * --tickets=ticket#:ticket#   -- specifies a range of tickets
   * --tickets='<ticket#'        -- specifies all tickets less than # (pretty sure quotes are requires to escape redirection in the shell)
   * --tickets='>ticket#'        -- specifies all tickets greater than # (pretty sure quotes are requires to escape redirection in the shell)
+* Added --merge flag that changes the transaction queries to use RT Ticket.EffectiveId instead of Ticket.id when building the queries for processing transactions
+  * This flag effectively causes tickets merged in RT to be imported directly as merged tickets
+  * This gets around some issues with the ticket_merge api calls which I was never able to sort out
 
 
 ### Other items:

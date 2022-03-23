@@ -1386,12 +1386,23 @@ Current Issues we are trying to deal with/sort out
   * The zammad merge api does not seem to work with the implementation expressed in the original code here (unchanged as of this writing)
       ** (this implementation does not actually make sense to me as it indicates that zammad wants two different
 	  ** specifications for tickets, first is the db refid, the second is a ticketid)
+  * setting/resetting zammad db id
+  * starting point for incoming ticket numbers?
+Issues sorted out:
   * We could potentially merge the entries during import by switching the transaction query to use EffectiveId;
-      ** But that would end up grabbing multiple creates, so we would have to figure out how to skip those extras
+	  ** But that would end up grabbing multiple creates, so we would have to figure out how to skip those extras
+	  ** Added --merge flag as an option.
+	      *** modifies queries to use RT's EffectiveId as the basis for transactions
+		  *** modifies create entries for merged tickets to be treated as replies avoiding duplicate ticket issues
   * We have no way to currently get email addresses assigned to the ticket into zammad via api.
-      ** could potentially build db queries
+	  ** could potentially build db queries
   * Timestamps for the ticket creation seem to ignore the updated_at value as well as the last_contact_at and last_contact_agent_at values
-      ** could possibly build sql commands to correct those
+	  ** could possibly build sql commands to correct those
+	  ** discovered issue in create case construction, the article supplied on the create was missing the created_at and updated_at tags
   * email address data in the zammad db is saved in TOAST extended storage
+      ** The issue here was not what I thought it was, the extended storage was not the issue.  The problem was in the field names of the zammad
+	  ** that were actually reserved words (to, from) and needed double quotes around them to fix.
+
+
 **/
 ?>
