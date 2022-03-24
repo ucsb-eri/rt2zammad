@@ -16,7 +16,7 @@ This code will probably never be completely polished as once we are able to comp
 
 We used a separate import account in Zammad to run the api against.  Some quick points:
 * Zammad should be put into import_mode to allow dates to get punched in correctly
-  * ```zammad run rails c -r "Setting.set('import_mode',true)"```
+  * ```zammad run rails r "Setting.set('import_mode',true)"```
 * Account used to import into api should have agent (to allow Requestor/Customer to be set) and admin roles (pretty sure, still testing)
 
 ## Modifications from Original Code
