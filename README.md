@@ -106,3 +106,14 @@ This can also be done by running:
 zammad run rails console
 ```
 And then issuing the commands in single quotes from the rails commands above
+
+```
+Settings.set('import_mode',true)
+Settings.get('import_mode')
+
+Ticket.destroy_all
+OnlineNotification.destroy_all
+ActivityStream.destroy_all
+RecentView.destroy_all
+History.destroy_all
+```
