@@ -73,6 +73,7 @@ class rt2zammad {
 	}
 	////////////////////////////////////////////////////////////////////////////
 	function resolveWhichTickets(){
+		$TField = ( $GLOBALS['opt']['merge']) ? 'Tickets.EffectiveId' : 'Tickets.id' ;
 		if (isset($GLOBALS['opt']['tickets']) && $GLOBALS['opt']['tickets'] != ''){
 			$ticketChunks = explode(",",$GLOBALS['opt']['tickets']);
 			foreach($ticketChunks as $ticketChunk){
@@ -82,7 +83,7 @@ class rt2zammad {
 					$tRangeBegInt = intval($tRangeBeg);
 					$tRangeEndInt = intval($tRangeEnd);
 					if ( $tRangeBegInt > 0 && $tRangeEndInt > 0){
-						$this->ticketIdClauses[]="AND Tickets.Id BETWEEN $tRangeBegInt AND $tRangeEndInt";
+						$this->ticketIdClauses[]="AND $TField BETWEEN $tRangeBegInt AND $tRangeEndInt";
 					}
 					else {
 						$errState = "Bad Range Specification ($ticketChunk)";
@@ -92,16 +93,16 @@ class rt2zammad {
 				elseif( strpos($ticketChunk,'>') !== False){
 					list($blank,$ticketStr) = explode(">",$ticketChunk,2);
 					$ticketInt = intval($ticketStr);
-					$this->ticketIdClauses[] = "AND Tickets.Id > $ticketInt";
+					$this->ticketIdClauses[] = "AND $TField > $ticketInt";
 				}
 				elseif( strpos($ticketChunk,'<') !== False){
 					list($blank,$ticketStr) = explode("<",$ticketChunk,2);
 					$ticketInt = intval($ticketStr);
-					$this->ticketIdClauses[] = "AND Tickets.Id < $ticketInt";
+					$this->ticketIdClauses[] = "AND $TField < $ticketInt";
 				}
 				else {
 					$ticketInt = intval($ticketChunk);
-					$this->ticketIdClauses[] = "AND Tickets.Id = $ticketInt";
+					$this->ticketIdClauses[] = "AND $TField = $ticketInt";
 				}
 			}
 		}
