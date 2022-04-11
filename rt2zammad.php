@@ -409,6 +409,12 @@ class rt2zammad {
 			    	if($new_value=="resolved"){
 			    		$new_value="closed";
 			    	}
+					if($new_value=="deleted"){
+						$new_value="removed";
+					}
+					if($new_value=="stalled"){
+						$new_value="pending reminder";
+					}
 			    	if($transaction['Field']=="Queue"){
 			    		if($transaction['NewValue']==10){
 			    			$new_value="GRIT";
