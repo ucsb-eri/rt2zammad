@@ -718,6 +718,8 @@ class rt2zammad {
 				case "merge":
 				        // this attempts to merge tickets during creation
 						// ostensibly, this should fail if merging into a ticket that the script has not seen yet
+						// not sure that the syntax/setup for this is actually correct either as they all seem to fail based on usage we have seen in threads
+						// note: that ticket_merge api is NOT documented on zammad website
 				    	$curl_action="GET";
 				    	$url="ticket_merge/{$row['zm_tid']}/$new_value";
 				    	//$data=array();
