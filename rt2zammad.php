@@ -249,6 +249,18 @@ class rt2zammad {
 			}
 		}
 	}
+	function remapState($state){
+		if($state=="resolved"){
+			$state="closed";
+		}
+		if($state=="deleted"){
+			$state="removed";
+		}
+		if($state=="stalled"){
+			$state="pending reminder";
+		}
+		return "$state";
+	}
 	////////////////////////////////////////////////////////////////////////////
 	// This needs to be run after rt_zammad has been fully populated by create_tickets
 	// Also looks like this is expected to be run on a system with access to both RT and zammad databases
@@ -391,10 +403,16 @@ class rt2zammad {
 			    	break;
 			    case 'Status':
 			    	$action="change_status";
-			    	$new_value=$transaction['NewValue'];
-			    	if($new_value=="resolved"){
-			    		$new_value="closed";
-			    	}
+			    	$new_value=$this->remapState($transaction['NewValue']);
+			    	// if($new_value=="resolved"){
+			    	// 	$new_value="closed";
+			    	// }
+					// if($new_value=="deleted"){
+					// 	$new_value="removed";
+					// }
+					// if($new_value=="stalled"){
+					// 	$new_value="pending reminder";
+					// }
 			    	break;
 			    case 'Correspond':
 			    	$action="reply";
@@ -405,16 +423,16 @@ class rt2zammad {
 			    case 'Set':
 				    // some values we see for "Field" are Owner,Subject
 			    	$action=$transaction['Field']; //Queue TimeWorked Subject Owner
-			    	$new_value=$transaction['NewValue'];
-			    	if($new_value=="resolved"){
-			    		$new_value="closed";
-			    	}
-					if($new_value=="deleted"){
-						$new_value="removed";
-					}
-					if($new_value=="stalled"){
-						$new_value="pending reminder";
-					}
+					$new_value=$this->remapState($transaction['NewValue']);
+			    	// if($new_value=="resolved"){
+			    	// 	$new_value="closed";
+			    	// }
+					// if($new_value=="deleted"){
+					// 	$new_value="removed";
+					// }
+					// if($new_value=="stalled"){
+					// 	$new_value="pending reminder";
+					// }
 			    	if($transaction['Field']=="Queue"){
 			    		if($transaction['NewValue']==10){
 			    			$new_value="GRIT";
@@ -1372,7 +1390,7 @@ Per thread at: https://community.zammad.org/t/importing-tickets-and-articles-usi
   looks like we may be able to set the time using "created_at" field for transactions/articles and ticket creation during import
   Specify 'created_at' in json and set import_mode to true in rails console...
   zammad run rails console       # interactively run the console
-  In rails console we need to execute:  Settings.set('import_mode', true)
+  In rails console we need to execute:  Setting.set('import_mode', true)
 
   So something like: zammad run rails r 'Setting.set('import_mode',true)'
   Assuming you would put back to false once import was done
