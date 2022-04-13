@@ -21,4 +21,7 @@ $GLOBALS['config']['owner_id'][118492]= 3;
 $GLOBALS['config']['owner_id'][119302]= 94;
 $GLOBALS['config']['owner_id'][120490]= 63;
 
+// Default Customer Email to use when Requestor is empty.
+$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
+
 ?>

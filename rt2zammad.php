@@ -18,7 +18,7 @@ class rt2zammad {
 		$this->epochBeg = time();
 		$this->ticketIdClauses = array();
 		$this->connection=mysqli_connect($GLOBALS['config']['rt_mysql_host'],$GLOBALS['config']['rt_mysql_user'],$GLOBALS['config']['rt_mysql_pass'],$GLOBALS['config']['rt_mysql_db']);
-
+        $this->defaultCustomerEmail = 'faked_customer_id@grit.ucsb.edu';
 		if(! $this->connection){
 			print("this->connection error\n");
 			myErrorLog(mysqli_error());
@@ -357,6 +357,10 @@ class rt2zammad {
 			// $ticket_number="9" . str_pad($transaction['TicketId'],5,'0',STR_PAD_LEFT);
 			$ticket_number=$this->getDestination($transaction['TicketId']);
 			$subject=$transaction['Subject'];
+
+			// Assign default requestor if the field is empty
+			if(is_null($transaction['Requestor'])) $transaction['Requestor'] = $GLOBALS['config']['defaultCustomerEmail'];
+			if($transaction['Requestor'] == "")    $transaction['Requestor'] = $GLOBALS['config']['defaultCustomerEmail'];
 
 			// This was hardwired by original coder and is VERY site specific
 			if($transaction['Queue']==10){
@@ -755,6 +759,7 @@ class rt2zammad {
 			$options=array();
 			$options[CURLOPT_URL]=$GLOBALS['config']['base_url'] . "/$url";
 			dprint("CURLOPT_URL: " . $options[CURLOPT_URL]);
+			myErrorLog("CURLOPT_URL: " . $options[CURLOPT_URL]);
 			$options[CURLOPT_POST]=true;
 			$options[CURLOPT_RETURNTRANSFER]=true;
 			$options[CURLOPT_VERBOSE]=true;
@@ -847,7 +852,7 @@ class rt2zammad {
 		$result1=mysqli_query($this->connection,$sql);
 		while($transaction=mysqli_fetch_assoc($result1)){
 			if(is_null($transaction['Requestor'])) continue;  // short circuit whole process if Requestor is null
-
+            if($transaction['Requestor'] == "") $transaction['Requestor'] = $GLOBALS['config']['defaultCustomerEmail'];
 			$data=array();
 			$url="";
 			$jdata="";
