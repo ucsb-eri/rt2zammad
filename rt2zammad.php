@@ -257,7 +257,7 @@ class rt2zammad {
 			$state="removed";
 		}
 		if($state=="stalled"){
-			$state="pending reminder";
+			$state="Stalled";
 		}
 		return "$state";
 	}
