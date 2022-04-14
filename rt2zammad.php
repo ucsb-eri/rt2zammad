@@ -1321,7 +1321,7 @@ $GLOBALS['opt']['logfile'] = '';
 $GLOBALS['opt']['dedup']   = False;
 $GLOBALS['opt']['merge']   = False;
 
-$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
+//$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
 
 // Command line processing
 $exe = array_shift($argv);
