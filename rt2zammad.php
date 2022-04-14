@@ -1322,7 +1322,7 @@ $GLOBALS['opt']['dedup']   = False;
 $GLOBALS['opt']['merge']   = False;
 
 // Not sure why this is is NOT getting pulled from config.php
-$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
+//$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
 
 // Command line processing
 $exe = array_shift($argv);
