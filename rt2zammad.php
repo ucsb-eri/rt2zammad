@@ -259,7 +259,7 @@ class rt2zammad {
 			$state="removed";
 		}
 		if($state=="stalled"){
-			$state="Stalled";
+			$state="stalled";
 		}
 		return "$state";
 	}
