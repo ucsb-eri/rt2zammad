@@ -1,7 +1,9 @@
 <?php
+$GLOBALS['opt'] = array();
+$GLOBALS['config'] = array();
+
 require "./config.php";
 
-$GLOBALS['opt'] = array();
 $article=array();
 $zid=0;
 
