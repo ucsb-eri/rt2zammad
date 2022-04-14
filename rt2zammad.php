@@ -1321,7 +1321,8 @@ $GLOBALS['opt']['logfile'] = '';
 $GLOBALS['opt']['dedup']   = False;
 $GLOBALS['opt']['merge']   = False;
 
-//$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
+// Not sure why this is is NOT getting pulled from config.php
+$GLOBALS['config']['defaultCustomerEmail'] = 'fake_customer_id@grit.ucsb.edu';
 
 // Command line processing
 $exe = array_shift($argv);
@@ -1368,7 +1369,7 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 	array_shift($argv);
 }
 
-myErrorLog(print_r($GLOBALS),true);
+myErrorLog(print_r($GLOBALS,true));
 
 $subcommand = array_shift($argv);
 dprint("exe: $exe, subcommand: $subcommand");
