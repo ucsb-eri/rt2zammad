@@ -1,4 +1,7 @@
 <?php
+// NOTE: saved a copy of this file as config.php (and do NOT add to the repo)
+// NOTE: changes to the config.php are not in the repo, debugging workflow could be affected
+
 // These paramaters describe the RT mysql db connection
 $GLOBALS['config']['rt_mysql_host'] = '127.0.0.1';
 $GLOBALS['config']['rt_mysql_user'] = 'dbuser';
