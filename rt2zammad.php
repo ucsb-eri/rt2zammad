@@ -361,6 +361,7 @@ class rt2zammad {
 			// Assign default requestor if the field is empty
 			if(is_null($transaction['Requestor'])) $transaction['Requestor'] = $GLOBALS['config']['defaultCustomerEmail'];
 			if($transaction['Requestor'] == "")    $transaction['Requestor'] = $GLOBALS['config']['defaultCustomerEmail'];
+			myErrorLog("transaction['Requestor']:".$transaction['Requestor']);
 
 			// This was hardwired by original coder and is VERY site specific
 			if($transaction['Queue']==10){
