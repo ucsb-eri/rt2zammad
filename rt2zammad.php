@@ -1366,7 +1366,7 @@ while( count($argv) > 0 && substr($argv[0],0,1) == "-" ){
 	array_shift($argv);
 }
 
-myErrorLog(print_r($GLOBALS));
+myErrorLog(print_r($GLOBALS),true);
 
 $subcommand = array_shift($argv);
 dprint("exe: $exe, subcommand: $subcommand");
